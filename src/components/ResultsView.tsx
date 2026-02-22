@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import type { Card, DeckSetResult, SearchProgress } from '../types';
 import { FACTION_COLORS, FACTION_NAMES } from '../types';
 
@@ -8,6 +8,7 @@ interface Props {
   isSearching: boolean;
   cardLookup: Map<string, Card>;
   cardTitles: Map<string, string>;
+  totalCandidateDecks: number;
 }
 
 export function ResultsView({
@@ -16,14 +17,65 @@ export function ResultsView({
   isSearching,
   cardLookup,
   cardTitles,
+  totalCandidateDecks,
 }: Props) {
   const [expandedSet, setExpandedSet] = useState<number | null>(null);
   const [expandedDeck, setExpandedDeck] = useState<string | null>(null);
+  const [expandedSummary, setExpandedSummary] = useState(false);
   const [page, setPage] = useState(0);
   const PAGE_SIZE = 20;
 
   const pagedResults = results.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
   const totalPages = Math.ceil(results.length / PAGE_SIZE);
+
+  // Aggregate missing cards across ALL result sets
+  const aggregateMissing = useMemo(() => {
+    if (results.length === 0) return [];
+
+    // For each card, track the max shortfall seen in any single set,
+    // plus how many sets need it
+    const cardStats = new Map<
+      string,
+      { maxShortfall: number; totalShortfallAcrossSets: number; setsNeeding: number }
+    >();
+
+    for (const result of results) {
+      for (const mc of result.missingCards) {
+        const existing = cardStats.get(mc.cardId);
+        if (existing) {
+          existing.maxShortfall = Math.max(existing.maxShortfall, mc.shortfall);
+          existing.totalShortfallAcrossSets += mc.shortfall;
+          existing.setsNeeding += 1;
+        } else {
+          cardStats.set(mc.cardId, {
+            maxShortfall: mc.shortfall,
+            totalShortfallAcrossSets: mc.shortfall,
+            setsNeeding: 1,
+          });
+        }
+      }
+    }
+
+    return [...cardStats.entries()]
+      .map(([cardId, stats]) => ({
+        cardId,
+        cardTitle: cardTitles.get(cardId) || cardId,
+        maxShortfall: stats.maxShortfall,
+        totalShortfallAcrossSets: stats.totalShortfallAcrossSets,
+        setsNeeding: stats.setsNeeding,
+        pctSets: Math.round((stats.setsNeeding / results.length) * 100),
+      }))
+      .sort((a, b) => b.setsNeeding - a.setsNeeding || b.maxShortfall - a.maxShortfall);
+  }, [results, cardTitles]);
+
+  // Count unique decks appearing in at least one result set
+  const uniqueDecksInResults = useMemo(() => {
+    const ids = new Set<string>();
+    for (const r of results) {
+      for (const d of r.decks) ids.add(d.id);
+    }
+    return ids.size;
+  }, [results]);
 
   if (!searchProgress && results.length === 0 && !isSearching) {
     return (
@@ -61,19 +113,99 @@ export function ResultsView({
   return (
     <div className="space-y-4">
       {/* Status bar */}
-      <div className="bg-white/5 rounded-xl border border-white/10 p-4 flex items-center justify-between">
-        <div>
+      <div className="bg-white/5 rounded-xl border border-white/10 p-4">
+        <div className="flex items-center justify-between">
           <span className="text-sm text-gray-300">
             {searchProgress?.message || `${results.length} deck sets found`}
           </span>
+          {results.length > 0 && (
+            <div className="text-sm text-gray-400">
+              Showing {page * PAGE_SIZE + 1}-{Math.min((page + 1) * PAGE_SIZE, results.length)} of{' '}
+              {results.length}
+            </div>
+          )}
         </div>
-        {results.length > 0 && (
-          <div className="text-sm text-gray-400">
-            Showing {page * PAGE_SIZE + 1}-{Math.min((page + 1) * PAGE_SIZE, results.length)} of{' '}
-            {results.length}
+        {results.length > 0 && totalCandidateDecks > 0 && (
+          <div className="mt-2 pt-2 border-t border-white/5 flex gap-6 text-xs text-gray-400">
+            <span>
+              Candidate decks used:{' '}
+              <span className="text-cyan-400 font-medium">
+                {uniqueDecksInResults}
+              </span>
+              {' / '}
+              {totalCandidateDecks}
+              {' '}
+              ({totalCandidateDecks > 0
+                ? Math.round((uniqueDecksInResults / totalCandidateDecks) * 100)
+                : 0}% appear in at least one set)
+            </span>
           </div>
         )}
       </div>
+
+      {/* Aggregate missing cards summary */}
+      {aggregateMissing.length > 0 && (
+        <div className="bg-yellow-500/5 rounded-xl border border-yellow-500/20 overflow-hidden">
+          <button
+            onClick={() => setExpandedSummary(!expandedSummary)}
+            className="w-full p-4 flex items-center justify-between text-left hover:bg-white/3 transition-colors"
+          >
+            <div>
+              <h3 className="text-sm font-semibold text-yellow-400">
+                Missing Cards Summary
+              </h3>
+              <p className="text-xs text-gray-400 mt-0.5">
+                {aggregateMissing.length} unique card{aggregateMissing.length !== 1 ? 's' : ''} missing
+                across {results.length} deck set{results.length !== 1 ? 's' : ''}
+              </p>
+            </div>
+            <span className="text-gray-500 text-sm">{expandedSummary ? '▲' : '▼'}</span>
+          </button>
+
+          {expandedSummary && (
+            <div className="border-t border-yellow-500/10 p-4">
+              <div className="text-xs text-gray-500 mb-3 grid grid-cols-[1fr_80px_80px_80px] gap-2 font-semibold uppercase tracking-wider">
+                <span>Card</span>
+                <span className="text-right">Max Short</span>
+                <span className="text-right">Sets Need</span>
+                <span className="text-right">% of Sets</span>
+              </div>
+              <div className="space-y-1 max-h-80 overflow-y-auto">
+                {aggregateMissing.map((mc) => (
+                  <div
+                    key={mc.cardId}
+                    className="grid grid-cols-[1fr_80px_80px_80px] gap-2 text-sm py-1 px-1 rounded hover:bg-white/5"
+                  >
+                    <span className="text-yellow-300 truncate">{mc.cardTitle}</span>
+                    <span className="text-right text-gray-400">-{mc.maxShortfall}</span>
+                    <span className="text-right text-gray-400">
+                      {mc.setsNeeding}/{results.length}
+                    </span>
+                    <span className="text-right">
+                      <span
+                        className={`${
+                          mc.pctSets === 100
+                            ? 'text-red-400'
+                            : mc.pctSets >= 50
+                              ? 'text-yellow-400'
+                              : 'text-gray-400'
+                        }`}
+                      >
+                        {mc.pctSets}%
+                      </span>
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-gray-500 mt-3 pt-2 border-t border-white/5">
+                <strong>Max Short</strong> = most copies short in any single set.{' '}
+                <strong>Sets Need</strong> = how many sets are missing this card.{' '}
+                Cards at 100% appear in every result set.
+              </p>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Results */}
       {pagedResults.map((result, idx) => {

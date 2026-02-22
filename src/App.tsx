@@ -21,6 +21,7 @@ function App() {
   const [searchProgress, setSearchProgress] = useState<SearchProgress | null>(null);
   const [isSearching, setIsSearching] = useState(false);
   const [knownAuthors, setKnownAuthors] = useState<string[]>([]);
+  const [totalCandidateDecks, setTotalCandidateDecks] = useState(0);
   const abortRef = useRef<{ aborted: boolean }>({ aborted: false });
 
   const cardPool = useMemo(
@@ -146,6 +147,13 @@ function App() {
             buckets.push({ factionId: slot, decks });
           }
         }
+
+        // Count total unique candidate decks across all buckets
+        const allCandidateIds = new Set<string>();
+        for (const b of buckets) {
+          for (const d of b.decks) allCandidateIds.add(d.id);
+        }
+        setTotalCandidateDecks(allCandidateIds.size);
 
         // Check we have decks in all slots
         const emptySlots = buckets.filter((b) => b.decks.length === 0);
@@ -330,6 +338,7 @@ function App() {
             isSearching={isSearching}
             cardLookup={cardLookup}
             cardTitles={cardTitles}
+            totalCandidateDecks={totalCandidateDecks}
           />
         )}
       </main>
