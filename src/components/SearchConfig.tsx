@@ -23,7 +23,7 @@ export function SearchConfig({
   const [numDecks, setNumDecks] = useState(4);
   const [factionSlots, setFactionSlots] = useState<string[]>([]);
   const [maxMissing, setMaxMissing] = useState(0);
-  const [minPopularity, setMinPopularity] = useState(0);
+  const [minPopularity] = useState(0);
   const [maxDecksPerFaction, setMaxDecksPerFaction] = useState(30);
 
   const sideFactions = useMemo(
