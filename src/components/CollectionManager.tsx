@@ -1,17 +1,6 @@
 import { useState, useMemo } from 'react';
 import type { Card, CardCycle, CardPool, CardSet, Collection, Printing } from '../types';
 
-// Known NSG product sets that users would actually purchase
-// We filter to these based on card_set_type being a purchasable product
-const NSG_CYCLE_IDS = [
-  'system_gateway',
-  'system_update_2021',
-  'borealis',
-  'liberation',
-  'ashes',
-  'elevation',
-];
-
 interface Props {
   collection: Collection;
   cardSets: CardSet[];
