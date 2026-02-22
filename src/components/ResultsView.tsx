@@ -7,6 +7,7 @@ import {
   deleteSavedSearch,
   type SavedSearch,
 } from '../store/savedData';
+import { BarChart3, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, X, ExternalLink, Save } from 'lucide-react';
 
 interface Props {
   results: DeckSetResult[];
@@ -115,7 +116,7 @@ export function ResultsView({
     return (
       <div className="space-y-8">
         <div className="text-center py-12">
-          <div className="text-6xl mb-4 opacity-30">📊</div>
+          <div className="mb-4 opacity-30 flex justify-center"><BarChart3 size={64} /></div>
           <h2 className="text-xl font-semibold text-gray-400 mb-2">No Results Yet</h2>
           <p className="text-gray-500">Configure a search in the Search tab to find deck sets.</p>
         </div>
@@ -140,10 +141,10 @@ export function ResultsView({
                   </button>
                   <button
                     onClick={() => handleDeleteSearch(s.id)}
-                    className="text-gray-500 hover:text-red-400 ml-2 shrink-0 transition-colors"
+                    className="p-1.5 text-gray-500 hover:text-red-400 ml-1 shrink-0 transition-colors"
                     title="Delete saved search"
                   >
-                    ✕
+                    <X size={14} />
                   </button>
                 </div>
               ))}
@@ -181,18 +182,16 @@ export function ResultsView({
     <div className="space-y-4">
       {/* Status bar */}
       <div className="bg-white/5 rounded-xl border border-white/10 p-4">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
           <span className="text-sm text-gray-300">
             {searchProgress?.message || `${results.length} deck sets found`}
           </span>
-          <div className="flex items-center gap-3">
-            {results.length > 0 && (
-              <div className="text-sm text-gray-400">
-                Showing {page * PAGE_SIZE + 1}-{Math.min((page + 1) * PAGE_SIZE, results.length)} of{' '}
-                {results.length}
-              </div>
-            )}
-          </div>
+          {results.length > 0 && (
+            <div className="text-xs sm:text-sm text-gray-400 shrink-0">
+              {page * PAGE_SIZE + 1}-{Math.min((page + 1) * PAGE_SIZE, results.length)} of{' '}
+              {results.length}
+            </div>
+          )}
         </div>
         {results.length > 0 && totalCandidateDecks > 0 && (
           <div className="mt-2 pt-2 border-t border-white/5 flex gap-6 text-xs text-gray-400">
@@ -245,9 +244,9 @@ export function ResultsView({
               <>
                 <button
                   onClick={() => setShowSaveForm(true)}
-                  className="text-xs text-purple-400 hover:text-purple-300 transition-colors"
+                  className="flex items-center gap-1 text-xs text-purple-400 hover:text-purple-300 transition-colors"
                 >
-                  Save results...
+                  <Save size={12} /> Save results...
                 </button>
                 {savedSearches.length > 0 && (
                   <>
@@ -256,7 +255,7 @@ export function ResultsView({
                       onClick={() => setExpandedSaved(!expandedSaved)}
                       className="text-xs text-gray-400 hover:text-gray-300 transition-colors"
                     >
-                      Saved searches ({savedSearches.length}) {expandedSaved ? '▲' : '▼'}
+                      Saved searches ({savedSearches.length}) {expandedSaved ? <ChevronUp size={12} className="inline" /> : <ChevronDown size={12} className="inline" />}
                     </button>
                   </>
                 )}
@@ -283,10 +282,10 @@ export function ResultsView({
                 </button>
                 <button
                   onClick={() => handleDeleteSearch(s.id)}
-                  className="text-gray-500 hover:text-red-400 ml-2 shrink-0 transition-colors"
+                  className="p-1.5 text-gray-500 hover:text-red-400 ml-2 shrink-0 transition-colors"
                   title="Delete saved search"
                 >
-                  ✕
+                  <X size={14} />
                 </button>
               </div>
             ))}
@@ -310,12 +309,12 @@ export function ResultsView({
                 across {results.length} deck set{results.length !== 1 ? 's' : ''}
               </p>
             </div>
-            <span className="text-gray-500 text-sm">{expandedSummary ? '▲' : '▼'}</span>
+            <span className="text-gray-500">{expandedSummary ? <ChevronUp size={16} /> : <ChevronDown size={16} />}</span>
           </button>
 
           {expandedSummary && (
             <div className="border-t border-yellow-500/10 p-4">
-              <div className="text-xs text-gray-500 mb-3 grid grid-cols-[1fr_80px_80px_80px] gap-2 font-semibold uppercase tracking-wider">
+              <div className="text-xs text-gray-500 mb-3 grid grid-cols-[1fr_55px_55px_55px] sm:grid-cols-[1fr_80px_80px_80px] gap-1.5 sm:gap-2 font-semibold uppercase tracking-wider">
                 <span>Card</span>
                 <span className="text-right">Max Missing</span>
                 <span className="text-right">Sets Need</span>
@@ -325,7 +324,7 @@ export function ResultsView({
                 {aggregateMissing.map((mc) => (
                   <div
                     key={mc.cardId}
-                    className="grid grid-cols-[1fr_80px_80px_80px] gap-2 text-sm py-1 px-1 rounded hover:bg-white/5"
+                    className="grid grid-cols-[1fr_55px_55px_55px] sm:grid-cols-[1fr_80px_80px_80px] gap-1.5 sm:gap-2 text-sm py-1 px-1 rounded hover:bg-white/5"
                   >
                     <span className="text-yellow-300 truncate">{mc.cardTitle}</span>
                     <span className="text-right text-gray-400">-{mc.maxShortfall}</span>
@@ -406,7 +405,7 @@ export function ResultsView({
                 ) : (
                   <span className="text-sm text-green-400">Complete</span>
                 )}
-                <span className="text-gray-500 text-sm">{isExpanded ? '▲' : '▼'}</span>
+                <span className="text-gray-500">{isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}</span>
               </div>
             </button>
 
@@ -446,8 +445,8 @@ export function ResultsView({
                             </div>
                           </div>
                         </div>
-                        <span className="text-gray-500 text-xs ml-2 shrink-0">
-                          {isDeckExpanded ? '▲' : '▼'}
+                        <span className="text-gray-500 ml-2 shrink-0">
+                          {isDeckExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                         </span>
                       </button>
 
@@ -492,7 +491,7 @@ export function ResultsView({
                               rel="noopener noreferrer"
                               className="text-xs text-cyan-400 hover:text-cyan-300 transition-colors"
                             >
-                              View on NetrunnerDB →
+                              View on NetrunnerDB <ExternalLink size={12} className="inline ml-1" />
                             </a>
                           </div>
                         </div>
@@ -544,19 +543,21 @@ export function ResultsView({
           <button
             onClick={() => setPage(Math.max(0, page - 1))}
             disabled={page === 0}
-            className="px-3 py-1.5 text-sm bg-white/5 hover:bg-white/10 disabled:opacity-30 rounded-lg transition-colors"
+            className="flex items-center gap-1.5 px-4 py-2.5 sm:py-2 text-sm bg-white/5 hover:bg-white/10 disabled:opacity-30 rounded-lg transition-colors"
           >
-            Previous
+            <ChevronLeft size={16} />
+            <span className="hidden sm:inline">Previous</span>
           </button>
           <span className="text-sm text-gray-400 px-4">
-            Page {page + 1} of {totalPages}
+            {page + 1} / {totalPages}
           </span>
           <button
             onClick={() => setPage(Math.min(totalPages - 1, page + 1))}
             disabled={page >= totalPages - 1}
-            className="px-3 py-1.5 text-sm bg-white/5 hover:bg-white/10 disabled:opacity-30 rounded-lg transition-colors"
+            className="flex items-center gap-1.5 px-4 py-2.5 sm:py-2 text-sm bg-white/5 hover:bg-white/10 disabled:opacity-30 rounded-lg transition-colors"
           >
-            Next
+            <span className="hidden sm:inline">Next</span>
+            <ChevronRight size={16} />
           </button>
         </div>
       )}

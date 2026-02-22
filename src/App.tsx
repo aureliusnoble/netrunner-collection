@@ -8,6 +8,7 @@ import { LoadingScreen } from './components/LoadingScreen';
 import { fetchDecklists, clearCache } from './api/netrunnerdb';
 import { preFilterDecks, findDeckSets } from './utils/deckSetFinder';
 import type { SearchConfig as SearchConfigType, DeckSetResult, SearchProgress, Decklist } from './types';
+import { Package, Search, BarChart3, RefreshCw } from 'lucide-react';
 
 type Tab = 'collection' | 'search' | 'results';
 
@@ -292,27 +293,28 @@ function App() {
     <div className="min-h-screen">
       {/* Header */}
       <header className="border-b border-white/10 bg-black/20 backdrop-blur-sm sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
-          <h1 className="text-xl font-bold" style={{ fontFamily: 'Orbitron, sans-serif' }}>
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 py-2.5 sm:py-3 flex items-center justify-between">
+          <h1 className="text-lg sm:text-xl font-bold" style={{ fontFamily: 'Orbitron, sans-serif' }}>
             <span className="text-cyan-400">NET</span>
             <span className="text-white">RUNNER</span>
-            <span className="text-gray-500 ml-2 text-sm font-normal" style={{ fontFamily: 'Inter, sans-serif' }}>
+            <span className="text-gray-500 ml-2 text-xs sm:text-sm font-normal hidden sm:inline" style={{ fontFamily: 'Inter, sans-serif' }}>
               Deck Set Analyzer
             </span>
           </h1>
-          <div className="flex items-center gap-4">
-            <span className="text-sm text-gray-400">
-              Collection: <span className="text-cyan-400 font-medium">{collectionSize}</span> unique cards
+          <div className="flex items-center gap-2 sm:gap-4">
+            <span className="text-xs sm:text-sm text-gray-400">
+              <span className="text-cyan-400 font-medium">{collectionSize}</span>
+              <span className="hidden sm:inline"> unique cards</span>
             </span>
             <button
               onClick={() => {
                 clearCache();
                 window.location.reload();
               }}
-              className="text-xs text-gray-500 hover:text-gray-300 transition-colors"
+              className="p-1.5 text-gray-500 hover:text-gray-300 transition-colors"
               title="Clear cached API data and reload"
             >
-              Refresh Data
+              <RefreshCw size={14} />
             </button>
           </div>
         </div>
@@ -320,25 +322,25 @@ function App() {
 
       {/* Tab Navigation */}
       <nav className="border-b border-white/10 bg-black/10">
-        <div className="max-w-7xl mx-auto px-4 flex gap-1">
+        <div className="max-w-7xl mx-auto px-2 sm:px-4 flex">
           {([
-            { id: 'collection' as Tab, label: 'Collection', icon: '📦' },
-            { id: 'search' as Tab, label: 'Search', icon: '🔍' },
-            { id: 'results' as Tab, label: 'Results', icon: '📊', badge: results.length || undefined },
+            { id: 'collection' as Tab, label: 'Collection', Icon: Package },
+            { id: 'search' as Tab, label: 'Search', Icon: Search },
+            { id: 'results' as Tab, label: 'Results', Icon: BarChart3, badge: results.length || undefined },
           ]).map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`px-4 py-3 text-sm font-medium transition-colors relative ${
+              className={`flex-1 sm:flex-none flex items-center justify-center sm:justify-start gap-1.5 px-3 sm:px-4 py-3 text-sm font-medium transition-colors relative ${
                 activeTab === tab.id
                   ? 'text-cyan-400 border-b-2 border-cyan-400'
                   : 'text-gray-400 hover:text-gray-200'
               }`}
             >
-              <span className="mr-1.5">{tab.icon}</span>
-              {tab.label}
+              <tab.Icon size={16} />
+              <span className="hidden sm:inline">{tab.label}</span>
               {tab.badge !== undefined && (
-                <span className="ml-1.5 px-1.5 py-0.5 text-xs bg-cyan-500/20 text-cyan-400 rounded-full">
+                <span className="ml-0.5 sm:ml-1.5 px-1.5 py-0.5 text-xs bg-cyan-500/20 text-cyan-400 rounded-full">
                   {tab.badge}
                 </span>
               )}
@@ -348,7 +350,7 @@ function App() {
       </nav>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto p-4">
+      <main className="max-w-7xl mx-auto px-3 py-4 sm:px-4">
         <div style={{ display: activeTab === 'collection' ? 'block' : 'none' }}>
           <CollectionManager
             collection={collection}

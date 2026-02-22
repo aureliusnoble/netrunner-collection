@@ -3,6 +3,7 @@ import type { Decklist, Faction, SearchConfig as SearchConfigType, SearchProgres
 import { FACTION_COLORS, FACTION_NAMES } from '../types';
 import { fetchDecklist } from '../api/netrunnerdb';
 import { getSavedPools, savePool, deletePool, type SavedPool } from '../store/savedData';
+import { X, Loader2, Save, Plus } from 'lucide-react';
 
 interface Props {
   factions: Faction[];
@@ -161,7 +162,7 @@ export function SearchConfig({
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
-      <div className="bg-white/5 rounded-xl border border-white/10 p-6">
+      <div className="bg-white/5 rounded-xl border border-white/10 p-4 sm:p-6">
         <h2 className="text-lg font-semibold mb-6 text-cyan-400">Search Configuration</h2>
 
         {collectionEmpty && (
@@ -280,7 +281,7 @@ export function SearchConfig({
                   <button
                     key={a}
                     onClick={() => addAuthor(a)}
-                    className="w-full text-left px-3 py-1.5 text-sm text-gray-300 hover:bg-white/10 transition-colors"
+                    className="w-full text-left px-3 py-2.5 sm:py-1.5 text-sm text-gray-300 hover:bg-white/10 transition-colors"
                   >
                     {a}
                   </button>
@@ -293,14 +294,14 @@ export function SearchConfig({
               {authors.map((a) => (
                 <span
                   key={a}
-                  className="inline-flex items-center gap-1 px-2 py-1 bg-cyan-500/15 border border-cyan-500/30 text-cyan-400 text-xs rounded-md"
+                  className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-cyan-500/15 border border-cyan-500/30 text-cyan-400 text-xs rounded-md"
                 >
                   {a}
                   <button
                     onClick={() => removeAuthor(a)}
-                    className="text-cyan-400/60 hover:text-cyan-300 ml-0.5"
+                    className="text-cyan-400/60 hover:text-cyan-300 ml-0.5 p-0.5"
                   >
-                    ✕
+                    <X size={12} />
                   </button>
                 </span>
               ))}
@@ -341,10 +342,10 @@ export function SearchConfig({
                     </button>
                     <button
                       onClick={() => handleDeletePool(pool.id)}
-                      className="text-purple-500/50 hover:text-red-400 ml-0.5 transition-colors"
+                      className="text-purple-500/50 hover:text-red-400 ml-0.5 p-0.5 transition-colors"
                       title="Delete saved pool"
                     >
-                      ✕
+                      <X size={12} />
                     </button>
                   </span>
                 ))}
@@ -374,7 +375,7 @@ export function SearchConfig({
               disabled={isFetchingDecklist || !decklistInput.trim()}
               className="px-4 py-2 bg-cyan-600/80 hover:bg-cyan-600 disabled:bg-gray-700 disabled:text-gray-500 text-white rounded-lg text-sm font-medium transition-colors"
             >
-              {isFetchingDecklist ? '...' : 'Add'}
+              {isFetchingDecklist ? <Loader2 size={16} className="animate-spin" /> : <><Plus size={16} /><span className="hidden sm:inline ml-1">Add</span></>}
             </button>
           </div>
           {fetchError && (
@@ -401,9 +402,9 @@ export function SearchConfig({
                   </div>
                   <button
                     onClick={() => removeDecklist(deck.id)}
-                    className="text-gray-500 hover:text-red-400 ml-2 shrink-0 transition-colors"
+                    className="p-1.5 text-gray-500 hover:text-red-400 ml-1 shrink-0 transition-colors"
                   >
-                    ✕
+                    <X size={14} />
                   </button>
                 </div>
               ))}
@@ -425,9 +426,9 @@ export function SearchConfig({
                     <button
                       onClick={handleSavePool}
                       disabled={!poolNameInput.trim()}
-                      className="px-2 py-1 bg-purple-600/80 hover:bg-purple-600 disabled:bg-gray-700 disabled:text-gray-500 text-white rounded text-xs font-medium transition-colors"
+                      className="flex items-center gap-1 px-2.5 py-1.5 bg-purple-600/80 hover:bg-purple-600 disabled:bg-gray-700 disabled:text-gray-500 text-white rounded text-xs font-medium transition-colors"
                     >
-                      Save
+                      <Save size={12} /> Save
                     </button>
                     <button
                       onClick={() => setShowSavePool(false)}
