@@ -259,7 +259,7 @@ export function SearchConfig({
           <input
             type="range"
             min={0}
-            max={20}
+            max={50}
             value={maxMissing}
             onChange={(e) => setMaxMissing(parseInt(e.target.value))}
             className="w-full accent-cyan-500"
