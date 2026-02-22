@@ -153,6 +153,7 @@ export interface SearchConfig {
   minPopularity: number;
   maxDecksPerFaction: number;
   authors: string[];
+  customDecklists: Decklist[];
 }
 
 export interface MissingCardInfo {

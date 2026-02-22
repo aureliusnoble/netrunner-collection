@@ -178,6 +178,12 @@ export async function fetchDecklists(
   return fetchAllPages<Decklist>(url, onProgress);
 }
 
+export async function fetchDecklist(id: string): Promise<Decklist> {
+  const base = await getApiBase();
+  const response: { data: Decklist } = await fetchJson(`${base}/decklists/${id}`);
+  return response.data;
+}
+
 export function clearCache(): void {
   const keys = Object.keys(localStorage);
   for (const key of keys) {

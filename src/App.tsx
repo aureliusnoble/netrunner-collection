@@ -61,33 +61,51 @@ function App() {
             ? uniqueFactions
             : sideFactions;
 
-        // Fetch decklists for each faction
+        // Fetch decklists: either use custom pool or fetch from API
         const decksByFaction = new Map<string, Decklist[]>();
         let totalFetched = 0;
 
-        for (const factionId of factionsToFetch) {
-          if (abortRef.current.aborted) return;
-
+        if (config.customDecklists.length > 0) {
+          // Use custom decklist pool — group by faction, filter by side
           setSearchProgress({
             phase: 'fetching',
-            message: `Fetching ${factionId} decklists...`,
-            current: totalFetched,
+            message: `Using ${config.customDecklists.length} custom decklist${config.customDecklists.length !== 1 ? 's' : ''}...`,
+            current: 0,
             total: 0,
           });
+          for (const deck of config.customDecklists) {
+            if (deck.attributes.side_id !== config.side) continue;
+            const fid = deck.attributes.faction_id;
+            if (!decksByFaction.has(fid)) decksByFaction.set(fid, []);
+            decksByFaction.get(fid)!.push(deck);
+            totalFetched++;
+          }
+        } else {
+          // Normal: fetch from NetrunnerDB API
+          for (const factionId of factionsToFetch) {
+            if (abortRef.current.aborted) return;
 
-          const decks = await fetchDecklists(
-            { sideId: config.side, factionId },
-            (n) => {
-              setSearchProgress({
-                phase: 'fetching',
-                message: `Fetching ${factionId} decklists... (${n})`,
-                current: totalFetched + n,
-                total: 0,
-              });
-            }
-          );
-          totalFetched += decks.length;
-          decksByFaction.set(factionId, decks);
+            setSearchProgress({
+              phase: 'fetching',
+              message: `Fetching ${factionId} decklists...`,
+              current: totalFetched,
+              total: 0,
+            });
+
+            const decks = await fetchDecklists(
+              { sideId: config.side, factionId },
+              (n) => {
+                setSearchProgress({
+                  phase: 'fetching',
+                  message: `Fetching ${factionId} decklists... (${n})`,
+                  current: totalFetched + n,
+                  total: 0,
+                });
+              }
+            );
+            totalFetched += decks.length;
+            decksByFaction.set(factionId, decks);
+          }
         }
 
         if (abortRef.current.aborted) return;
@@ -172,7 +190,9 @@ function App() {
         if (emptySlots.length > 0) {
           setSearchProgress({
             phase: 'done',
-            message: `No matching decks found for some faction slots. Try increasing missing card tolerance or adding more products to your collection.`,
+            message: config.customDecklists.length > 0
+              ? `No matching decks found for some faction slots. Check that your custom decklists match the selected side and factions.`
+              : `No matching decks found for some faction slots. Try increasing missing card tolerance or adding more products to your collection.`,
             current: 0,
             total: 0,
           });

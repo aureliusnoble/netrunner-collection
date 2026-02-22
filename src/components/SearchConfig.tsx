@@ -1,6 +1,7 @@
 import { useState, useMemo, useCallback } from 'react';
-import type { Faction, SearchConfig as SearchConfigType, SearchProgress } from '../types';
+import type { Decklist, Faction, SearchConfig as SearchConfigType, SearchProgress } from '../types';
 import { FACTION_COLORS, FACTION_NAMES } from '../types';
+import { fetchDecklist } from '../api/netrunnerdb';
 
 interface Props {
   factions: Faction[];
@@ -29,6 +30,10 @@ export function SearchConfig({
   const [maxDecksPerFaction, setMaxDecksPerFaction] = useState(30);
   const [authors, setAuthors] = useState<string[]>([]);
   const [authorInput, setAuthorInput] = useState('');
+  const [customDecklists, setCustomDecklists] = useState<Decklist[]>([]);
+  const [decklistInput, setDecklistInput] = useState('');
+  const [isFetchingDecklist, setIsFetchingDecklist] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
   const sideFactions = useMemo(
     () =>
@@ -84,6 +89,41 @@ export function SearchConfig({
     setAuthors((prev) => prev.filter((a) => a !== author));
   }, []);
 
+  const parseDecklistId = (input: string): string | null => {
+    const trimmed = input.trim();
+    const urlMatch = trimmed.match(/decklist\/(\d+)/);
+    if (urlMatch) return urlMatch[1];
+    if (/^\d+$/.test(trimmed)) return trimmed;
+    return null;
+  };
+
+  const handleAddDecklist = useCallback(async () => {
+    const id = parseDecklistId(decklistInput);
+    if (!id) {
+      setFetchError('Invalid decklist URL or ID');
+      return;
+    }
+    if (customDecklists.some((d) => d.id === id)) {
+      setFetchError('Decklist already added');
+      return;
+    }
+    setIsFetchingDecklist(true);
+    setFetchError(null);
+    try {
+      const decklist = await fetchDecklist(id);
+      setCustomDecklists((prev) => [...prev, decklist]);
+      setDecklistInput('');
+    } catch (err) {
+      setFetchError(err instanceof Error ? err.message : 'Failed to fetch decklist');
+    } finally {
+      setIsFetchingDecklist(false);
+    }
+  }, [decklistInput, customDecklists]);
+
+  const removeDecklist = useCallback((id: string) => {
+    setCustomDecklists((prev) => prev.filter((d) => d.id !== id));
+  }, []);
+
   const handleSearch = () => {
     onSearch({
       side,
@@ -93,6 +133,7 @@ export function SearchConfig({
       minPopularity,
       maxDecksPerFaction,
       authors,
+      customDecklists,
     });
   };
 
@@ -251,6 +292,80 @@ export function SearchConfig({
           )}
         </div>
 
+        {/* Custom Decklist Pool */}
+        <div className="mb-6">
+          <label className="block text-sm font-medium text-gray-300 mb-2">
+            Custom Decklist Pool <span className="text-gray-500 font-normal">(optional)</span>
+          </label>
+          <p className="text-xs text-gray-500 mb-2">
+            Restrict search to specific decklists. Paste a NetrunnerDB decklist URL or ID.
+          </p>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              placeholder="https://netrunnerdb.com/en/decklist/12345 or just 12345"
+              value={decklistInput}
+              onChange={(e) => {
+                setDecklistInput(e.target.value);
+                setFetchError(null);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && decklistInput.trim()) {
+                  e.preventDefault();
+                  handleAddDecklist();
+                }
+              }}
+              disabled={isFetchingDecklist}
+              className="flex-1 px-3 py-2 bg-black/30 border border-white/10 rounded-lg text-sm text-white placeholder-gray-500 focus:outline-none focus:border-cyan-500/50"
+            />
+            <button
+              onClick={handleAddDecklist}
+              disabled={isFetchingDecklist || !decklistInput.trim()}
+              className="px-4 py-2 bg-cyan-600/80 hover:bg-cyan-600 disabled:bg-gray-700 disabled:text-gray-500 text-white rounded-lg text-sm font-medium transition-colors"
+            >
+              {isFetchingDecklist ? '...' : 'Add'}
+            </button>
+          </div>
+          {fetchError && (
+            <p className="text-xs text-red-400 mt-1">{fetchError}</p>
+          )}
+          {customDecklists.length > 0 && (
+            <div className="mt-3 space-y-1">
+              {customDecklists.map((deck) => (
+                <div
+                  key={deck.id}
+                  className="flex items-center justify-between px-3 py-2 bg-black/20 rounded-lg border border-white/5"
+                  style={{
+                    borderLeftWidth: '4px',
+                    borderLeftColor: FACTION_COLORS[deck.attributes.faction_id] || '#666',
+                  }}
+                >
+                  <div className="min-w-0">
+                    <div className="text-sm text-white truncate">{deck.attributes.name}</div>
+                    <div className="text-xs text-gray-500">
+                      by {deck.attributes.user_id} ·{' '}
+                      {FACTION_NAMES[deck.attributes.faction_id] || deck.attributes.faction_id} ·{' '}
+                      ID {deck.id}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => removeDecklist(deck.id)}
+                    className="text-gray-500 hover:text-red-400 ml-2 shrink-0 transition-colors"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+              <button
+                onClick={() => setCustomDecklists([])}
+                className="text-xs text-gray-500 hover:text-gray-300 transition-colors px-1 mt-1"
+              >
+                Clear all
+              </button>
+            </div>
+          )}
+        </div>
+
         {/* Missing cards tolerance */}
         <div className="mb-6">
           <label className="block text-sm font-medium text-gray-300 mb-2">
@@ -323,7 +438,9 @@ export function SearchConfig({
               disabled={collectionEmpty}
               className="w-full py-3 bg-cyan-600 hover:bg-cyan-700 disabled:bg-gray-700 disabled:text-gray-500 text-white rounded-lg text-sm font-semibold transition-colors"
             >
-              Search for Deck Sets
+              {customDecklists.length > 0
+                ? `Search within ${customDecklists.length} Custom Decklist${customDecklists.length !== 1 ? 's' : ''}`
+                : 'Search for Deck Sets'}
             </button>
           )}
         </div>
