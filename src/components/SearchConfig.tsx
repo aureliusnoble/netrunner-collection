@@ -39,6 +39,7 @@ export function SearchConfig({
   const [savedPools, setSavedPools] = useState<SavedPool[]>(() => getSavedPools());
   const [poolNameInput, setPoolNameInput] = useState('');
   const [showSavePool, setShowSavePool] = useState(false);
+  const [uniqueDecksAcrossSets, setUniqueDecksAcrossSets] = useState(false);
 
   const sideFactions = useMemo(
     () =>
@@ -157,6 +158,7 @@ export function SearchConfig({
       maxDecksPerFaction,
       authors,
       customDecklists,
+      uniqueDecksAcrossSets,
     });
   };
 
@@ -474,6 +476,37 @@ export function SearchConfig({
           />
           <p className="text-xs text-gray-500 mt-1">
             Total missing card copies across ALL decks in a set
+          </p>
+        </div>
+
+        {/* Unique decks across sets */}
+        <div className="mb-6">
+          <label className="flex items-center gap-3 cursor-pointer">
+            <div className="relative">
+              <input
+                type="checkbox"
+                checked={uniqueDecksAcrossSets}
+                onChange={(e) => setUniqueDecksAcrossSets(e.target.checked)}
+                className="sr-only"
+              />
+              <div
+                className={`w-10 h-5 rounded-full transition-colors ${
+                  uniqueDecksAcrossSets ? 'bg-cyan-600' : 'bg-white/10'
+                }`}
+              />
+              <div
+                className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
+                  uniqueDecksAcrossSets ? 'translate-x-5' : ''
+                }`}
+              />
+            </div>
+            <span className="text-sm font-medium text-gray-300">
+              Unique Decks Across Sets
+            </span>
+          </label>
+          <p className="text-xs text-gray-500 mt-2 ml-[52px]">
+            Each deck appears in at most one result set. Sets may be partial
+            (fewer decks than requested) to avoid reusing decks.
           </p>
         </div>
 

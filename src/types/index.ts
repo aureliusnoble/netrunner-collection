@@ -154,6 +154,7 @@ export interface SearchConfig {
   maxDecksPerFaction: number;
   authors: string[];
   customDecklists: Decklist[];
+  uniqueDecksAcrossSets: boolean;
 }
 
 export interface MissingCardInfo {
@@ -170,6 +171,8 @@ export interface DeckSetResult {
   totalMissingCards: number;
   missingCards: MissingCardInfo[];
   combinedPopularity: number;
+  isPartial?: boolean;
+  originalDeckCount?: number;
 }
 
 export interface SearchProgress {

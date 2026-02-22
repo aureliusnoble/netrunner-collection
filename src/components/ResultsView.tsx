@@ -398,6 +398,11 @@ export function ResultsView({
                 </div>
               </div>
               <div className="flex items-center gap-4">
+                {result.isPartial && result.originalDeckCount && (
+                  <span className="text-xs px-2 py-0.5 rounded bg-orange-500/15 border border-orange-500/30 text-orange-400">
+                    Partial ({result.decks.length}/{result.originalDeckCount})
+                  </span>
+                )}
                 {result.totalMissingCards > 0 ? (
                   <span className="text-sm text-yellow-400">
                     {result.totalMissingCards} missing card{result.totalMissingCards !== 1 ? 's' : ''}
