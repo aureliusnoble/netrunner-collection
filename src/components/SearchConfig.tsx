@@ -538,8 +538,9 @@ export function SearchConfig({
             </span>
           </label>
           <p className="text-xs text-gray-500 mt-2 ml-[52px]">
-            Each deck appears in at most one result set. Sets may be partial
-            (fewer decks than requested) to avoid reusing decks.
+            Prioritizes unique decks across result sets. When a set can't be
+            filled entirely with unique decks, the best available deck of the
+            same faction is shared from another set to keep the set complete.
           </p>
         </div>
 

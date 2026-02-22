@@ -169,13 +169,22 @@ export async function fetchDecklists(
   },
   onProgress?: (loaded: number) => void
 ): Promise<Decklist[]> {
+  const cacheKey = `decklists_${filters.sideId || 'all'}_${filters.factionId || 'all'}`;
+  const cached = getCached<Decklist[]>(cacheKey);
+  if (cached) {
+    onProgress?.(cached.length);
+    return cached;
+  }
+
   const base = await getApiBase();
   const params = new URLSearchParams();
   if (filters.sideId) params.set('filter[side_id]', filters.sideId);
   if (filters.factionId) params.set('filter[faction_id]', filters.factionId);
 
   const url = `${base}/decklists?${params.toString()}`;
-  return fetchAllPages<Decklist>(url, onProgress);
+  const data = await fetchAllPages<Decklist>(url, onProgress);
+  setCache(cacheKey, data);
+  return data;
 }
 
 export async function fetchDecklist(id: string): Promise<Decklist> {

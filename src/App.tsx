@@ -228,11 +228,13 @@ function App() {
                 current: 0,
                 total: 0,
               });
-              const deduplicated = deduplicateDeckSets(found, cardPool, cardTitles, config.numDecks);
+              const deduplicated = deduplicateDeckSets(found, cardPool, cardTitles, config.numDecks, filteredByFaction);
               const completeCount = deduplicated.filter((r) => !r.isPartial).length;
+              const sharedCount = deduplicated.filter((r) => r.duplicateDeckIds && r.duplicateDeckIds.length > 0).length;
               const partialCount = deduplicated.length - completeCount;
               const parts = [];
               if (completeCount > 0) parts.push(`${completeCount} complete`);
+              if (sharedCount > 0) parts.push(`${sharedCount} with shared decks`);
               if (partialCount > 0) parts.push(`${partialCount} partial`);
               setResults(deduplicated);
               setSearchProgress({
