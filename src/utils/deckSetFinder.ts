@@ -195,6 +195,107 @@ export function findDeckSets(
 }
 
 /**
+ * Deduplicate deck sets so each deck appears at most once across all results.
+ * Uses a greedy maximum-coverage algorithm:
+ *   - Each iteration picks the candidate set that adds the most new (unused) decks
+ *   - Ties broken by fewest missing cards
+ *   - If a set's decks are partially claimed, it becomes a partial set
+ *   - Partial sets get missing cards recomputed
+ *
+ * Objective: maximize unique deck coverage, minimize number of sets.
+ */
+export function deduplicateDeckSets(
+  results: DeckSetResult[],
+  pool: CardPool,
+  cardTitles: Map<string, string>,
+  requestedDeckCount: number
+): DeckSetResult[] {
+  if (results.length === 0) return [];
+
+  const globalUsed = new Set<string>();
+  const deduplicated: DeckSetResult[] = [];
+  // Track which candidates are still available (by index)
+  const remaining = new Set<number>(results.map((_, i) => i));
+
+  while (remaining.size > 0) {
+    let bestIdx = -1;
+    let bestNewCount = 0;
+    let bestMissing = Infinity;
+
+    // Find the candidate with the most new (unused) decks
+    for (const idx of remaining) {
+      const candidate = results[idx];
+      let newCount = 0;
+      for (const deck of candidate.decks) {
+        if (!globalUsed.has(deck.id)) newCount++;
+      }
+
+      if (newCount === 0) {
+        // This candidate has no new decks to offer — remove it
+        remaining.delete(idx);
+        continue;
+      }
+
+      if (
+        newCount > bestNewCount ||
+        (newCount === bestNewCount && candidate.totalMissingCards < bestMissing)
+      ) {
+        bestIdx = idx;
+        bestNewCount = newCount;
+        bestMissing = candidate.totalMissingCards;
+      }
+    }
+
+    if (bestIdx === -1) break; // No candidates with new decks
+
+    const chosen = results[bestIdx];
+    remaining.delete(bestIdx);
+
+    // Extract only the unused decks from this set
+    const unusedDecks = chosen.decks.filter((d) => !globalUsed.has(d.id));
+
+    // Mark these decks as globally used
+    for (const deck of unusedDecks) {
+      globalUsed.add(deck.id);
+    }
+
+    const isPartial = unusedDecks.length < chosen.decks.length;
+
+    if (isPartial || unusedDecks.length < requestedDeckCount) {
+      // Recompute missing cards for the partial set
+      const { totalMissing, missingCards } = computeSetMissingCards(
+        unusedDecks,
+        pool,
+        cardTitles
+      );
+      deduplicated.push({
+        decks: unusedDecks,
+        totalMissingCards: totalMissing,
+        missingCards,
+        combinedPopularity: 0,
+        isPartial: true,
+        originalDeckCount: requestedDeckCount,
+      });
+    } else {
+      deduplicated.push({
+        ...chosen,
+        isPartial: false,
+        originalDeckCount: requestedDeckCount,
+      });
+    }
+  }
+
+  // Sort: complete sets first, then by deck count DESC, then missing ASC
+  deduplicated.sort((a, b) => {
+    if (a.isPartial !== b.isPartial) return a.isPartial ? 1 : -1;
+    if (a.decks.length !== b.decks.length) return b.decks.length - a.decks.length;
+    return a.totalMissingCards - b.totalMissingCards;
+  });
+
+  return deduplicated;
+}
+
+/**
  * Pre-filter decks: keep only those individually buildable within tolerance.
  * Returns decks sorted by missing card count ascending.
  */

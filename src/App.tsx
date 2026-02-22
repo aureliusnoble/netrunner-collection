@@ -6,7 +6,7 @@ import { SearchConfig } from './components/SearchConfig';
 import { ResultsView } from './components/ResultsView';
 import { LoadingScreen } from './components/LoadingScreen';
 import { fetchDecklists, clearCache } from './api/netrunnerdb';
-import { preFilterDecks, findDeckSets } from './utils/deckSetFinder';
+import { preFilterDecks, findDeckSets, deduplicateDeckSets } from './utils/deckSetFinder';
 import type { SearchConfig as SearchConfigType, DeckSetResult, SearchProgress, Decklist } from './types';
 import { Package, Search, BarChart3, RefreshCw } from 'lucide-react';
 
@@ -220,13 +220,36 @@ function App() {
               setSearchProgress,
               abortRef.current
             );
-            setResults(found);
-            setSearchProgress({
-              phase: 'done',
-              message: `Found ${found.length} valid deck set${found.length !== 1 ? 's' : ''}`,
-              current: found.length,
-              total: found.length,
-            });
+
+            if (config.uniqueDecksAcrossSets && found.length > 0) {
+              setSearchProgress({
+                phase: 'combining',
+                message: `Deduplicating ${found.length} sets so each deck appears only once...`,
+                current: 0,
+                total: 0,
+              });
+              const deduplicated = deduplicateDeckSets(found, cardPool, cardTitles, config.numDecks);
+              const completeCount = deduplicated.filter((r) => !r.isPartial).length;
+              const partialCount = deduplicated.length - completeCount;
+              const parts = [];
+              if (completeCount > 0) parts.push(`${completeCount} complete`);
+              if (partialCount > 0) parts.push(`${partialCount} partial`);
+              setResults(deduplicated);
+              setSearchProgress({
+                phase: 'done',
+                message: `Found ${deduplicated.length} unique deck set${deduplicated.length !== 1 ? 's' : ''} (${parts.join(', ')})`,
+                current: deduplicated.length,
+                total: deduplicated.length,
+              });
+            } else {
+              setResults(found);
+              setSearchProgress({
+                phase: 'done',
+                message: `Found ${found.length} valid deck set${found.length !== 1 ? 's' : ''}`,
+                current: found.length,
+                total: found.length,
+              });
+            }
             resolve();
           }, 50);
         });
