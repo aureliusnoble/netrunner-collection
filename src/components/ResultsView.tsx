@@ -1,6 +1,13 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import type { Card, DeckSetResult, SearchProgress } from '../types';
 import { FACTION_COLORS, FACTION_NAMES } from '../types';
+import {
+  getSavedSearches,
+  saveSearch,
+  deleteSavedSearch,
+  type SavedSearch,
+} from '../store/savedData';
+import { BarChart3, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, X, ExternalLink, Save } from 'lucide-react';
 
 interface Props {
   results: DeckSetResult[];
@@ -9,6 +16,7 @@ interface Props {
   cardLookup: Map<string, Card>;
   cardTitles: Map<string, string>;
   totalCandidateDecks: number;
+  onLoadResults: (results: DeckSetResult[]) => void;
 }
 
 export function ResultsView({
@@ -18,12 +26,39 @@ export function ResultsView({
   cardLookup,
   cardTitles,
   totalCandidateDecks,
+  onLoadResults,
 }: Props) {
   const [expandedSet, setExpandedSet] = useState<number | null>(null);
   const [expandedDeck, setExpandedDeck] = useState<string | null>(null);
-  const [expandedSummary, setExpandedSummary] = useState(false);
+  const [expandedSummary, setExpandedSummary] = useState(true);
   const [page, setPage] = useState(0);
   const PAGE_SIZE = 20;
+
+  const [savedSearches, setSavedSearches] = useState<SavedSearch[]>(() => getSavedSearches());
+  const [showSaveForm, setShowSaveForm] = useState(false);
+  const [saveNameInput, setSaveNameInput] = useState('');
+  const [expandedSaved, setExpandedSaved] = useState(false);
+
+  const handleSaveSearch = useCallback(() => {
+    const name = saveNameInput.trim();
+    if (!name || results.length === 0) return;
+    saveSearch(name, results);
+    setSavedSearches(getSavedSearches());
+    setSaveNameInput('');
+    setShowSaveForm(false);
+  }, [saveNameInput, results]);
+
+  const handleLoadSearch = useCallback((search: SavedSearch) => {
+    onLoadResults(search.results);
+    setExpandedSaved(false);
+    setPage(0);
+    setExpandedSet(null);
+  }, [onLoadResults]);
+
+  const handleDeleteSearch = useCallback((id: string) => {
+    deleteSavedSearch(id);
+    setSavedSearches(getSavedSearches());
+  }, []);
 
   const pagedResults = results.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
   const totalPages = Math.ceil(results.length / PAGE_SIZE);
@@ -79,10 +114,43 @@ export function ResultsView({
 
   if (!searchProgress && results.length === 0 && !isSearching) {
     return (
-      <div className="text-center py-20">
-        <div className="text-6xl mb-4 opacity-30">📊</div>
-        <h2 className="text-xl font-semibold text-gray-400 mb-2">No Results Yet</h2>
-        <p className="text-gray-500">Configure a search in the Search tab to find deck sets.</p>
+      <div className="space-y-8">
+        <div className="text-center py-12">
+          <div className="mb-4 opacity-30 flex justify-center"><BarChart3 size={64} /></div>
+          <h2 className="text-xl font-semibold text-gray-400 mb-2">No Results Yet</h2>
+          <p className="text-gray-500">Configure a search in the Search tab to find deck sets.</p>
+        </div>
+        {savedSearches.length > 0 && (
+          <div className="bg-white/5 rounded-xl border border-white/10 p-4">
+            <h3 className="text-sm font-semibold text-purple-400 mb-3">Saved Searches</h3>
+            <div className="space-y-1.5">
+              {savedSearches.map((s) => (
+                <div
+                  key={s.id}
+                  className="flex items-center justify-between px-3 py-2 bg-black/20 rounded-lg border border-white/5"
+                >
+                  <button
+                    onClick={() => handleLoadSearch(s)}
+                    className="min-w-0 text-left hover:text-purple-300 transition-colors"
+                  >
+                    <div className="text-sm text-white truncate">{s.name}</div>
+                    <div className="text-xs text-gray-500">
+                      {s.resultCount} deck set{s.resultCount !== 1 ? 's' : ''} ·{' '}
+                      {new Date(s.savedAt).toLocaleDateString()}
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => handleDeleteSearch(s.id)}
+                    className="p-1.5 text-gray-500 hover:text-red-400 ml-1 shrink-0 transition-colors"
+                    title="Delete saved search"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -114,13 +182,13 @@ export function ResultsView({
     <div className="space-y-4">
       {/* Status bar */}
       <div className="bg-white/5 rounded-xl border border-white/10 p-4">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
           <span className="text-sm text-gray-300">
             {searchProgress?.message || `${results.length} deck sets found`}
           </span>
           {results.length > 0 && (
-            <div className="text-sm text-gray-400">
-              Showing {page * PAGE_SIZE + 1}-{Math.min((page + 1) * PAGE_SIZE, results.length)} of{' '}
+            <div className="text-xs sm:text-sm text-gray-400 shrink-0">
+              {page * PAGE_SIZE + 1}-{Math.min((page + 1) * PAGE_SIZE, results.length)} of{' '}
               {results.length}
             </div>
           )}
@@ -141,6 +209,88 @@ export function ResultsView({
             </span>
           </div>
         )}
+        {/* Save & Load controls */}
+        {results.length > 0 && (
+          <div className="mt-2 pt-2 border-t border-white/5 flex items-center gap-3">
+            {showSaveForm ? (
+              <div className="flex items-center gap-1.5 flex-1">
+                <input
+                  type="text"
+                  placeholder="Name this search..."
+                  value={saveNameInput}
+                  onChange={(e) => setSaveNameInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') { e.preventDefault(); handleSaveSearch(); }
+                    if (e.key === 'Escape') setShowSaveForm(false);
+                  }}
+                  className="flex-1 px-2 py-1 bg-black/30 border border-white/10 rounded text-xs text-white placeholder-gray-500 focus:outline-none focus:border-purple-500/50"
+                  autoFocus
+                />
+                <button
+                  onClick={handleSaveSearch}
+                  disabled={!saveNameInput.trim()}
+                  className="px-2 py-1 bg-purple-600/80 hover:bg-purple-600 disabled:bg-gray-700 disabled:text-gray-500 text-white rounded text-xs font-medium transition-colors"
+                >
+                  Save
+                </button>
+                <button
+                  onClick={() => setShowSaveForm(false)}
+                  className="text-xs text-gray-500 hover:text-gray-300 transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <>
+                <button
+                  onClick={() => setShowSaveForm(true)}
+                  className="flex items-center gap-1 text-xs text-purple-400 hover:text-purple-300 transition-colors"
+                >
+                  <Save size={12} /> Save results...
+                </button>
+                {savedSearches.length > 0 && (
+                  <>
+                    <span className="text-gray-600">·</span>
+                    <button
+                      onClick={() => setExpandedSaved(!expandedSaved)}
+                      className="text-xs text-gray-400 hover:text-gray-300 transition-colors"
+                    >
+                      Saved searches ({savedSearches.length}) {expandedSaved ? <ChevronUp size={12} className="inline" /> : <ChevronDown size={12} className="inline" />}
+                    </button>
+                  </>
+                )}
+              </>
+            )}
+          </div>
+        )}
+        {expandedSaved && savedSearches.length > 0 && (
+          <div className="mt-2 pt-2 border-t border-white/5 space-y-1.5">
+            {savedSearches.map((s) => (
+              <div
+                key={s.id}
+                className="flex items-center justify-between px-3 py-2 bg-black/20 rounded-lg border border-white/5"
+              >
+                <button
+                  onClick={() => handleLoadSearch(s)}
+                  className="min-w-0 text-left hover:text-purple-300 transition-colors"
+                >
+                  <div className="text-sm text-white truncate">{s.name}</div>
+                  <div className="text-xs text-gray-500">
+                    {s.resultCount} deck set{s.resultCount !== 1 ? 's' : ''} ·{' '}
+                    {new Date(s.savedAt).toLocaleDateString()}
+                  </div>
+                </button>
+                <button
+                  onClick={() => handleDeleteSearch(s.id)}
+                  className="p-1.5 text-gray-500 hover:text-red-400 ml-2 shrink-0 transition-colors"
+                  title="Delete saved search"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Aggregate missing cards summary */}
@@ -159,14 +309,14 @@ export function ResultsView({
                 across {results.length} deck set{results.length !== 1 ? 's' : ''}
               </p>
             </div>
-            <span className="text-gray-500 text-sm">{expandedSummary ? '▲' : '▼'}</span>
+            <span className="text-gray-500">{expandedSummary ? <ChevronUp size={16} /> : <ChevronDown size={16} />}</span>
           </button>
 
           {expandedSummary && (
             <div className="border-t border-yellow-500/10 p-4">
-              <div className="text-xs text-gray-500 mb-3 grid grid-cols-[1fr_80px_80px_80px] gap-2 font-semibold uppercase tracking-wider">
+              <div className="text-xs text-gray-500 mb-3 grid grid-cols-[1fr_55px_55px_55px] sm:grid-cols-[1fr_80px_80px_80px] gap-1.5 sm:gap-2 font-semibold uppercase tracking-wider">
                 <span>Card</span>
-                <span className="text-right">Max Short</span>
+                <span className="text-right">Max Missing</span>
                 <span className="text-right">Sets Need</span>
                 <span className="text-right">% of Sets</span>
               </div>
@@ -174,7 +324,7 @@ export function ResultsView({
                 {aggregateMissing.map((mc) => (
                   <div
                     key={mc.cardId}
-                    className="grid grid-cols-[1fr_80px_80px_80px] gap-2 text-sm py-1 px-1 rounded hover:bg-white/5"
+                    className="grid grid-cols-[1fr_55px_55px_55px] sm:grid-cols-[1fr_80px_80px_80px] gap-1.5 sm:gap-2 text-sm py-1 px-1 rounded hover:bg-white/5"
                   >
                     <span className="text-yellow-300 truncate">{mc.cardTitle}</span>
                     <span className="text-right text-gray-400">-{mc.maxShortfall}</span>
@@ -198,7 +348,7 @@ export function ResultsView({
                 ))}
               </div>
               <p className="text-xs text-gray-500 mt-3 pt-2 border-t border-white/5">
-                <strong>Max Short</strong> = most copies short in any single set.{' '}
+                <strong>Max Missing</strong> = most copies short in any single set.{' '}
                 <strong>Sets Need</strong> = how many sets are missing this card.{' '}
                 Cards at 100% appear in every result set.
               </p>
@@ -255,7 +405,7 @@ export function ResultsView({
                 ) : (
                   <span className="text-sm text-green-400">Complete</span>
                 )}
-                <span className="text-gray-500 text-sm">{isExpanded ? '▲' : '▼'}</span>
+                <span className="text-gray-500">{isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}</span>
               </div>
             </button>
 
@@ -295,8 +445,8 @@ export function ResultsView({
                             </div>
                           </div>
                         </div>
-                        <span className="text-gray-500 text-xs ml-2 shrink-0">
-                          {isDeckExpanded ? '▲' : '▼'}
+                        <span className="text-gray-500 ml-2 shrink-0">
+                          {isDeckExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                         </span>
                       </button>
 
@@ -341,7 +491,7 @@ export function ResultsView({
                               rel="noopener noreferrer"
                               className="text-xs text-cyan-400 hover:text-cyan-300 transition-colors"
                             >
-                              View on NetrunnerDB →
+                              View on NetrunnerDB <ExternalLink size={12} className="inline ml-1" />
                             </a>
                           </div>
                         </div>
@@ -393,19 +543,21 @@ export function ResultsView({
           <button
             onClick={() => setPage(Math.max(0, page - 1))}
             disabled={page === 0}
-            className="px-3 py-1.5 text-sm bg-white/5 hover:bg-white/10 disabled:opacity-30 rounded-lg transition-colors"
+            className="flex items-center gap-1.5 px-4 py-2.5 sm:py-2 text-sm bg-white/5 hover:bg-white/10 disabled:opacity-30 rounded-lg transition-colors"
           >
-            Previous
+            <ChevronLeft size={16} />
+            <span className="hidden sm:inline">Previous</span>
           </button>
           <span className="text-sm text-gray-400 px-4">
-            Page {page + 1} of {totalPages}
+            {page + 1} / {totalPages}
           </span>
           <button
             onClick={() => setPage(Math.min(totalPages - 1, page + 1))}
             disabled={page >= totalPages - 1}
-            className="px-3 py-1.5 text-sm bg-white/5 hover:bg-white/10 disabled:opacity-30 rounded-lg transition-colors"
+            className="flex items-center gap-1.5 px-4 py-2.5 sm:py-2 text-sm bg-white/5 hover:bg-white/10 disabled:opacity-30 rounded-lg transition-colors"
           >
-            Next
+            <span className="hidden sm:inline">Next</span>
+            <ChevronRight size={16} />
           </button>
         </div>
       )}

@@ -8,6 +8,7 @@ import { LoadingScreen } from './components/LoadingScreen';
 import { fetchDecklists, clearCache } from './api/netrunnerdb';
 import { preFilterDecks, findDeckSets } from './utils/deckSetFinder';
 import type { SearchConfig as SearchConfigType, DeckSetResult, SearchProgress, Decklist } from './types';
+import { Package, Search, BarChart3, RefreshCw } from 'lucide-react';
 
 type Tab = 'collection' | 'search' | 'results';
 
@@ -61,33 +62,51 @@ function App() {
             ? uniqueFactions
             : sideFactions;
 
-        // Fetch decklists for each faction
+        // Fetch decklists: either use custom pool or fetch from API
         const decksByFaction = new Map<string, Decklist[]>();
         let totalFetched = 0;
 
-        for (const factionId of factionsToFetch) {
-          if (abortRef.current.aborted) return;
-
+        if (config.customDecklists.length > 0) {
+          // Use custom decklist pool — group by faction, filter by side
           setSearchProgress({
             phase: 'fetching',
-            message: `Fetching ${factionId} decklists...`,
-            current: totalFetched,
+            message: `Using ${config.customDecklists.length} custom decklist${config.customDecklists.length !== 1 ? 's' : ''}...`,
+            current: 0,
             total: 0,
           });
+          for (const deck of config.customDecklists) {
+            if (deck.attributes.side_id !== config.side) continue;
+            const fid = deck.attributes.faction_id;
+            if (!decksByFaction.has(fid)) decksByFaction.set(fid, []);
+            decksByFaction.get(fid)!.push(deck);
+            totalFetched++;
+          }
+        } else {
+          // Normal: fetch from NetrunnerDB API
+          for (const factionId of factionsToFetch) {
+            if (abortRef.current.aborted) return;
 
-          const decks = await fetchDecklists(
-            { sideId: config.side, factionId },
-            (n) => {
-              setSearchProgress({
-                phase: 'fetching',
-                message: `Fetching ${factionId} decklists... (${n})`,
-                current: totalFetched + n,
-                total: 0,
-              });
-            }
-          );
-          totalFetched += decks.length;
-          decksByFaction.set(factionId, decks);
+            setSearchProgress({
+              phase: 'fetching',
+              message: `Fetching ${factionId} decklists...`,
+              current: totalFetched,
+              total: 0,
+            });
+
+            const decks = await fetchDecklists(
+              { sideId: config.side, factionId },
+              (n) => {
+                setSearchProgress({
+                  phase: 'fetching',
+                  message: `Fetching ${factionId} decklists... (${n})`,
+                  current: totalFetched + n,
+                  total: 0,
+                });
+              }
+            );
+            totalFetched += decks.length;
+            decksByFaction.set(factionId, decks);
+          }
         }
 
         if (abortRef.current.aborted) return;
@@ -172,7 +191,9 @@ function App() {
         if (emptySlots.length > 0) {
           setSearchProgress({
             phase: 'done',
-            message: `No matching decks found for some faction slots. Try increasing missing card tolerance or adding more products to your collection.`,
+            message: config.customDecklists.length > 0
+              ? `No matching decks found for some faction slots. Check that your custom decklists match the selected side and factions.`
+              : `No matching decks found for some faction slots. Try increasing missing card tolerance or adding more products to your collection.`,
             current: 0,
             total: 0,
           });
@@ -234,6 +255,17 @@ function App() {
     });
   }, []);
 
+  const loadResults = useCallback((loaded: DeckSetResult[]) => {
+    setResults(loaded);
+    setSearchProgress({
+      phase: 'done',
+      message: `Loaded ${loaded.length} saved deck set${loaded.length !== 1 ? 's' : ''}`,
+      current: loaded.length,
+      total: loaded.length,
+    });
+    setTotalCandidateDecks(0);
+  }, []);
+
   if (appData.loading) {
     return <LoadingScreen message={appData.loadingMessage} />;
   }
@@ -261,27 +293,28 @@ function App() {
     <div className="min-h-screen">
       {/* Header */}
       <header className="border-b border-white/10 bg-black/20 backdrop-blur-sm sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
-          <h1 className="text-xl font-bold" style={{ fontFamily: 'Orbitron, sans-serif' }}>
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 py-2.5 sm:py-3 flex items-center justify-between">
+          <h1 className="text-lg sm:text-xl font-bold" style={{ fontFamily: 'Orbitron, sans-serif' }}>
             <span className="text-cyan-400">NET</span>
             <span className="text-white">RUNNER</span>
-            <span className="text-gray-500 ml-2 text-sm font-normal" style={{ fontFamily: 'Inter, sans-serif' }}>
+            <span className="text-gray-500 ml-2 text-xs sm:text-sm font-normal hidden sm:inline" style={{ fontFamily: 'Inter, sans-serif' }}>
               Deck Set Analyzer
             </span>
           </h1>
-          <div className="flex items-center gap-4">
-            <span className="text-sm text-gray-400">
-              Collection: <span className="text-cyan-400 font-medium">{collectionSize}</span> unique cards
+          <div className="flex items-center gap-2 sm:gap-4">
+            <span className="text-xs sm:text-sm text-gray-400">
+              <span className="text-cyan-400 font-medium">{collectionSize}</span>
+              <span className="hidden sm:inline"> unique cards</span>
             </span>
             <button
               onClick={() => {
                 clearCache();
                 window.location.reload();
               }}
-              className="text-xs text-gray-500 hover:text-gray-300 transition-colors"
+              className="p-1.5 text-gray-500 hover:text-gray-300 transition-colors"
               title="Clear cached API data and reload"
             >
-              Refresh Data
+              <RefreshCw size={14} />
             </button>
           </div>
         </div>
@@ -289,25 +322,25 @@ function App() {
 
       {/* Tab Navigation */}
       <nav className="border-b border-white/10 bg-black/10">
-        <div className="max-w-7xl mx-auto px-4 flex gap-1">
+        <div className="max-w-7xl mx-auto px-2 sm:px-4 flex">
           {([
-            { id: 'collection' as Tab, label: 'Collection', icon: '📦' },
-            { id: 'search' as Tab, label: 'Search', icon: '🔍' },
-            { id: 'results' as Tab, label: 'Results', icon: '📊', badge: results.length || undefined },
+            { id: 'collection' as Tab, label: 'Collection', Icon: Package },
+            { id: 'search' as Tab, label: 'Search', Icon: Search },
+            { id: 'results' as Tab, label: 'Results', Icon: BarChart3, badge: results.length || undefined },
           ]).map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`px-4 py-3 text-sm font-medium transition-colors relative ${
+              className={`flex-1 sm:flex-none flex items-center justify-center sm:justify-start gap-1.5 px-3 sm:px-4 py-3 text-sm font-medium transition-colors relative ${
                 activeTab === tab.id
                   ? 'text-cyan-400 border-b-2 border-cyan-400'
                   : 'text-gray-400 hover:text-gray-200'
               }`}
             >
-              <span className="mr-1.5">{tab.icon}</span>
-              {tab.label}
+              <tab.Icon size={16} />
+              <span className="hidden sm:inline">{tab.label}</span>
               {tab.badge !== undefined && (
-                <span className="ml-1.5 px-1.5 py-0.5 text-xs bg-cyan-500/20 text-cyan-400 rounded-full">
+                <span className="ml-0.5 sm:ml-1.5 px-1.5 py-0.5 text-xs bg-cyan-500/20 text-cyan-400 rounded-full">
                   {tab.badge}
                 </span>
               )}
@@ -317,8 +350,8 @@ function App() {
       </nav>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto p-4">
-        {activeTab === 'collection' && (
+      <main className="max-w-7xl mx-auto px-3 py-4 sm:px-4">
+        <div style={{ display: activeTab === 'collection' ? 'block' : 'none' }}>
           <CollectionManager
             collection={collection}
             cardSets={appData.cardSets}
@@ -331,8 +364,8 @@ function App() {
             onAddManualCard={addManualCard}
             onRemoveManualCard={removeManualCard}
           />
-        )}
-        {activeTab === 'search' && (
+        </div>
+        <div style={{ display: activeTab === 'search' ? 'block' : 'none' }}>
           <SearchConfig
             factions={appData.factions}
             isSearching={isSearching}
@@ -342,8 +375,8 @@ function App() {
             collectionEmpty={collectionSize === 0}
             knownAuthors={knownAuthors}
           />
-        )}
-        {activeTab === 'results' && (
+        </div>
+        <div style={{ display: activeTab === 'results' ? 'block' : 'none' }}>
           <ResultsView
             results={results}
             searchProgress={searchProgress}
@@ -351,8 +384,9 @@ function App() {
             cardLookup={cardLookup}
             cardTitles={cardTitles}
             totalCandidateDecks={totalCandidateDecks}
+            onLoadResults={loadResults}
           />
-        )}
+        </div>
       </main>
     </div>
   );
