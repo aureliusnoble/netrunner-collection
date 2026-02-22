@@ -20,6 +20,7 @@ function App() {
   const [results, setResults] = useState<DeckSetResult[]>([]);
   const [searchProgress, setSearchProgress] = useState<SearchProgress | null>(null);
   const [isSearching, setIsSearching] = useState(false);
+  const [knownAuthors, setKnownAuthors] = useState<string[]>([]);
   const abortRef = useRef<{ aborted: boolean }>({ aborted: false });
 
   const cardPool = useMemo(
@@ -90,6 +91,23 @@ function App() {
 
         if (abortRef.current.aborted) return;
 
+        // Collect known authors for prefill suggestions
+        const allAuthors = new Set<string>();
+        for (const decks of decksByFaction.values()) {
+          for (const d of decks) {
+            allAuthors.add(d.attributes.user_id);
+          }
+        }
+        setKnownAuthors((prev) => {
+          const merged = new Set([...prev, ...allAuthors]);
+          return [...merged].sort();
+        });
+
+        // Filter by author if specified
+        const authorFilter = config.authors.length > 0
+          ? new Set(config.authors.map((a) => a.toLowerCase()))
+          : null;
+
         // Pre-filter each faction's decks
         setSearchProgress({
           phase: 'filtering',
@@ -100,8 +118,13 @@ function App() {
 
         const filteredByFaction = new Map<string, Decklist[]>();
         for (const [factionId, decks] of decksByFaction) {
-          const filtered = preFilterDecks(decks, cardPool, config.maxMissingCards);
-          // Limit per faction for combinatorial sanity
+          let candidates = decks;
+          if (authorFilter) {
+            candidates = candidates.filter((d) =>
+              authorFilter.has(d.attributes.user_id.toLowerCase())
+            );
+          }
+          const filtered = preFilterDecks(candidates, cardPool, config.maxMissingCards);
           const limited = filtered.slice(0, config.maxDecksPerFaction);
           filteredByFaction.set(factionId, limited);
         }
@@ -297,6 +320,7 @@ function App() {
             onCancel={cancelSearch}
             searchProgress={searchProgress}
             collectionEmpty={collectionSize === 0}
+            knownAuthors={knownAuthors}
           />
         )}
         {activeTab === 'results' && (

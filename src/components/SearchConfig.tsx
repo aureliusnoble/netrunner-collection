@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import type { Faction, SearchConfig as SearchConfigType, SearchProgress } from '../types';
 import { FACTION_COLORS, FACTION_NAMES } from '../types';
 
@@ -9,6 +9,7 @@ interface Props {
   onCancel: () => void;
   searchProgress: SearchProgress | null;
   collectionEmpty: boolean;
+  knownAuthors: string[];
 }
 
 export function SearchConfig({
@@ -18,6 +19,7 @@ export function SearchConfig({
   onCancel,
   searchProgress,
   collectionEmpty,
+  knownAuthors,
 }: Props) {
   const [side, setSide] = useState<'runner' | 'corp'>('corp');
   const [numDecks, setNumDecks] = useState(4);
@@ -25,6 +27,8 @@ export function SearchConfig({
   const [maxMissing, setMaxMissing] = useState(0);
   const [minPopularity] = useState(0);
   const [maxDecksPerFaction, setMaxDecksPerFaction] = useState(30);
+  const [authors, setAuthors] = useState<string[]>([]);
+  const [authorInput, setAuthorInput] = useState('');
 
   const sideFactions = useMemo(
     () =>
@@ -34,7 +38,6 @@ export function SearchConfig({
     [factions, side]
   );
 
-  // Initialize faction slots when side/numDecks changes
   const effectiveSlots = useMemo(() => {
     const slots = [...factionSlots];
     while (slots.length < numDecks) slots.push('any');
@@ -56,6 +59,31 @@ export function SearchConfig({
     setFactionSlots(newSlots);
   };
 
+  // Author suggestions filtered by current input
+  const authorSuggestions = useMemo(() => {
+    if (authorInput.length < 1) return [];
+    const term = authorInput.toLowerCase();
+    return knownAuthors
+      .filter(
+        (a) =>
+          a.toLowerCase().includes(term) &&
+          !authors.includes(a)
+      )
+      .slice(0, 8);
+  }, [authorInput, knownAuthors, authors]);
+
+  const addAuthor = useCallback((author: string) => {
+    const trimmed = author.trim();
+    if (trimmed && !authors.includes(trimmed)) {
+      setAuthors((prev) => [...prev, trimmed]);
+    }
+    setAuthorInput('');
+  }, [authors]);
+
+  const removeAuthor = useCallback((author: string) => {
+    setAuthors((prev) => prev.filter((a) => a !== author));
+  }, []);
+
   const handleSearch = () => {
     onSearch({
       side,
@@ -64,6 +92,7 @@ export function SearchConfig({
       maxMissingCards: maxMissing,
       minPopularity,
       maxDecksPerFaction,
+      authors,
     });
   };
 
@@ -158,6 +187,68 @@ export function SearchConfig({
               </div>
             ))}
           </div>
+        </div>
+
+        {/* Author filter */}
+        <div className="mb-6">
+          <label className="block text-sm font-medium text-gray-300 mb-2">
+            Filter by Author <span className="text-gray-500 font-normal">(optional)</span>
+          </label>
+          <p className="text-xs text-gray-500 mb-2">
+            Only include decklists by these authors. Leave empty to include all.
+          </p>
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="Type a NetrunnerDB username..."
+              value={authorInput}
+              onChange={(e) => setAuthorInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && authorInput.trim()) {
+                  e.preventDefault();
+                  addAuthor(authorInput);
+                }
+              }}
+              className="w-full px-3 py-2 bg-black/30 border border-white/10 rounded-lg text-sm text-white placeholder-gray-500 focus:outline-none focus:border-cyan-500/50"
+            />
+            {authorSuggestions.length > 0 && (
+              <div className="absolute z-10 mt-1 w-full bg-gray-900 border border-white/10 rounded-lg shadow-lg max-h-40 overflow-y-auto">
+                {authorSuggestions.map((a) => (
+                  <button
+                    key={a}
+                    onClick={() => addAuthor(a)}
+                    className="w-full text-left px-3 py-1.5 text-sm text-gray-300 hover:bg-white/10 transition-colors"
+                  >
+                    {a}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          {authors.length > 0 && (
+            <div className="flex flex-wrap gap-2 mt-2">
+              {authors.map((a) => (
+                <span
+                  key={a}
+                  className="inline-flex items-center gap-1 px-2 py-1 bg-cyan-500/15 border border-cyan-500/30 text-cyan-400 text-xs rounded-md"
+                >
+                  {a}
+                  <button
+                    onClick={() => removeAuthor(a)}
+                    className="text-cyan-400/60 hover:text-cyan-300 ml-0.5"
+                  >
+                    ✕
+                  </button>
+                </span>
+              ))}
+              <button
+                onClick={() => setAuthors([])}
+                className="text-xs text-gray-500 hover:text-gray-300 transition-colors px-1"
+              >
+                Clear all
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Missing cards tolerance */}

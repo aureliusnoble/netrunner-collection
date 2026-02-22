@@ -152,6 +152,7 @@ export interface SearchConfig {
   maxMissingCards: number;
   minPopularity: number;
   maxDecksPerFaction: number;
+  authors: string[];
 }
 
 export interface MissingCardInfo {
