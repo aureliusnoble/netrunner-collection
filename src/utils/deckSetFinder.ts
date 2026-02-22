@@ -199,16 +199,19 @@ export function findDeckSets(
  * Uses a greedy maximum-coverage algorithm:
  *   - Each iteration picks the candidate set that adds the most new (unused) decks
  *   - Ties broken by fewest missing cards
- *   - If a set's decks are partially claimed, it becomes a partial set
- *   - Partial sets get missing cards recomputed
+ *   - When a set loses decks to earlier sets, gaps are filled with the best
+ *     available deck of the same faction (even if already used elsewhere),
+ *     minimizing missing cards. Only when no deck of the needed faction exists
+ *     at all does the set remain partial.
  *
- * Objective: maximize unique deck coverage, minimize number of sets.
+ * Objective: maximize unique deck coverage, keep sets complete.
  */
 export function deduplicateDeckSets(
   results: DeckSetResult[],
   pool: CardPool,
   cardTitles: Map<string, string>,
-  requestedDeckCount: number
+  requestedDeckCount: number,
+  allCandidatesByFaction?: Map<string, Decklist[]>
 ): DeckSetResult[] {
   if (results.length === 0) return [];
 
@@ -259,10 +262,78 @@ export function deduplicateDeckSets(
       globalUsed.add(deck.id);
     }
 
-    const isPartial = unusedDecks.length < chosen.decks.length;
+    const needsFilling = unusedDecks.length < chosen.decks.length;
 
-    if (isPartial || unusedDecks.length < requestedDeckCount) {
-      // Recompute missing cards for the partial set
+    if (needsFilling && allCandidatesByFaction) {
+      // Identify which factions lost a deck
+      const removedFactions: string[] = [];
+      for (const deck of chosen.decks) {
+        if (globalUsed.has(deck.id) && !unusedDecks.some((d) => d.id === deck.id)) {
+          removedFactions.push(deck.attributes.faction_id);
+        }
+      }
+
+      // Build the working set and fill gaps with best available duplicates
+      const setDecks = [...unusedDecks];
+      const setDeckIds = new Set(setDecks.map((d) => d.id));
+      const duplicateIds: string[] = [];
+
+      for (const faction of removedFactions) {
+        const candidates = allCandidatesByFaction.get(faction) || [];
+        let bestFill: Decklist | null = null;
+        let bestFillMissing = Infinity;
+        let bestFillIsUnused = false;
+
+        for (const candidate of candidates) {
+          if (setDeckIds.has(candidate.id)) continue; // already in this set
+
+          // Evaluate how well this candidate fills the gap
+          const testDecks = [...setDecks, candidate];
+          const { totalMissing } = computeSetMissingCards(testDecks, pool, cardTitles);
+          const isUnused = !globalUsed.has(candidate.id);
+
+          // Prefer lower missing; break ties by preferring unused decks
+          if (
+            totalMissing < bestFillMissing ||
+            (totalMissing === bestFillMissing && isUnused && !bestFillIsUnused)
+          ) {
+            bestFill = candidate;
+            bestFillMissing = totalMissing;
+            bestFillIsUnused = isUnused;
+          }
+        }
+
+        if (bestFill) {
+          setDecks.push(bestFill);
+          setDeckIds.add(bestFill.id);
+          // If the fill deck is already used elsewhere, it's a shared/duplicate deck
+          if (globalUsed.has(bestFill.id)) {
+            duplicateIds.push(bestFill.id);
+          } else {
+            // Fill deck hasn't been used yet — claim it
+            globalUsed.add(bestFill.id);
+          }
+        }
+      }
+
+      // Recompute missing cards for the filled set
+      const { totalMissing, missingCards } = computeSetMissingCards(
+        setDecks,
+        pool,
+        cardTitles
+      );
+      const stillPartial = setDecks.length < requestedDeckCount;
+      deduplicated.push({
+        decks: setDecks,
+        totalMissingCards: totalMissing,
+        missingCards,
+        combinedPopularity: 0,
+        isPartial: stillPartial,
+        originalDeckCount: requestedDeckCount,
+        duplicateDeckIds: duplicateIds.length > 0 ? duplicateIds : undefined,
+      });
+    } else if (needsFilling) {
+      // No candidate pool available — fall back to partial set
       const { totalMissing, missingCards } = computeSetMissingCards(
         unusedDecks,
         pool,
@@ -285,10 +356,12 @@ export function deduplicateDeckSets(
     }
   }
 
-  // Sort: complete sets first, then by deck count DESC, then missing ASC
+  // Sort: complete sets first, then by shared deck count ASC, then missing ASC
   deduplicated.sort((a, b) => {
     if (a.isPartial !== b.isPartial) return a.isPartial ? 1 : -1;
-    if (a.decks.length !== b.decks.length) return b.decks.length - a.decks.length;
+    const aShared = a.duplicateDeckIds?.length || 0;
+    const bShared = b.duplicateDeckIds?.length || 0;
+    if (aShared !== bShared) return aShared - bShared;
     return a.totalMissingCards - b.totalMissingCards;
   });
 

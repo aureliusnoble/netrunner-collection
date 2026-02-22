@@ -398,6 +398,11 @@ export function ResultsView({
                 </div>
               </div>
               <div className="flex items-center gap-4">
+                {result.duplicateDeckIds && result.duplicateDeckIds.length > 0 && (
+                  <span className="text-xs px-2 py-0.5 rounded bg-blue-500/15 border border-blue-500/30 text-blue-400">
+                    {result.duplicateDeckIds.length} shared deck{result.duplicateDeckIds.length !== 1 ? 's' : ''}
+                  </span>
+                )}
                 {result.isPartial && result.originalDeckCount && (
                   <span className="text-xs px-2 py-0.5 rounded bg-orange-500/15 border border-orange-500/30 text-orange-400">
                     Partial ({result.decks.length}/{result.originalDeckCount})
@@ -440,8 +445,13 @@ export function ResultsView({
                             }}
                           />
                           <div className="min-w-0">
-                            <div className="font-medium text-sm truncate">
+                            <div className="font-medium text-sm truncate flex items-center gap-1.5">
                               {deck.attributes.name}
+                              {result.duplicateDeckIds?.includes(deck.id) && (
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-500/15 border border-blue-500/30 text-blue-400 shrink-0">
+                                  Shared
+                                </span>
+                              )}
                             </div>
                             <div className="text-xs text-gray-500">
                               by {deck.attributes.user_id} ·{' '}

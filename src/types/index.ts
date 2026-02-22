@@ -174,6 +174,8 @@ export interface DeckSetResult {
   combinedPopularity: number;
   isPartial?: boolean;
   originalDeckCount?: number;
+  /** Deck IDs in this set that are shared (duplicated) with other sets */
+  duplicateDeckIds?: string[];
 }
 
 export interface SearchProgress {
