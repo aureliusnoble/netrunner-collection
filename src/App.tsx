@@ -110,24 +110,36 @@ function App() {
           : null;
 
         // Pre-filter each faction's decks
-        setSearchProgress({
-          phase: 'filtering',
-          message: 'Pre-filtering decks against your collection...',
-          current: 0,
-          total: totalFetched,
-        });
-
+        let authorMatchCount = 0;
         const filteredByFaction = new Map<string, Decklist[]>();
         for (const [factionId, decks] of decksByFaction) {
           let candidates = decks;
           if (authorFilter) {
-            candidates = candidates.filter((d) =>
-              authorFilter.has(d.attributes.user_id.toLowerCase())
-            );
+            candidates = candidates.filter((d) => {
+              const uid = d.attributes.user_id;
+              return uid != null && authorFilter.has(uid.toLowerCase());
+            });
+            authorMatchCount += candidates.length;
           }
+
+          setSearchProgress({
+            phase: 'filtering',
+            message: authorFilter
+              ? `Filtering ${factionId} decks (${candidates.length} by ${config.authors.join(', ')})...`
+              : `Pre-filtering ${factionId} decks against your collection...`,
+            current: 0,
+            total: totalFetched,
+          });
+
           const filtered = preFilterDecks(candidates, cardPool, config.maxMissingCards);
           const limited = filtered.slice(0, config.maxDecksPerFaction);
           filteredByFaction.set(factionId, limited);
+        }
+
+        if (authorFilter) {
+          console.log(
+            `[Author filter] Matched ${authorMatchCount}/${totalFetched} decks for authors: ${config.authors.join(', ')}`
+          );
         }
 
         // Build faction buckets for the combination search

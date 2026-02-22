@@ -224,22 +224,27 @@ export function ResultsView({
               onClick={() => setExpandedSet(isExpanded ? null : globalIdx)}
               className="w-full p-4 flex items-center justify-between text-left hover:bg-white/5 transition-colors rounded-xl"
             >
-              <div className="flex items-center gap-4">
-                <span className="text-lg font-bold text-gray-500 w-8">#{globalIdx + 1}</span>
-                <div className="flex gap-2">
-                  {result.decks.map((deck, di) => (
-                    <span
-                      key={di}
-                      className="px-2 py-0.5 rounded text-xs font-medium"
-                      style={{
-                        backgroundColor: (FACTION_COLORS[deck.attributes.faction_id] || '#666') + '20',
-                        color: FACTION_COLORS[deck.attributes.faction_id] || '#999',
-                        border: `1px solid ${(FACTION_COLORS[deck.attributes.faction_id] || '#666') + '40'}`,
-                      }}
-                    >
-                      {FACTION_NAMES[deck.attributes.faction_id] || deck.attributes.faction_id}
-                    </span>
-                  ))}
+              <div className="flex items-center gap-4 min-w-0">
+                <span className="text-lg font-bold text-gray-500 w-8 shrink-0">#{globalIdx + 1}</span>
+                <div className="min-w-0">
+                  <div className="flex flex-wrap gap-1.5 mb-1">
+                    {result.decks.map((deck, di) => (
+                      <span
+                        key={di}
+                        className="px-2 py-0.5 rounded text-xs font-medium"
+                        style={{
+                          backgroundColor: (FACTION_COLORS[deck.attributes.faction_id] || '#666') + '20',
+                          color: FACTION_COLORS[deck.attributes.faction_id] || '#999',
+                          border: `1px solid ${(FACTION_COLORS[deck.attributes.faction_id] || '#666') + '40'}`,
+                        }}
+                      >
+                        {FACTION_NAMES[deck.attributes.faction_id] || deck.attributes.faction_id}
+                      </span>
+                    ))}
+                  </div>
+                  <div className="text-xs text-gray-500 truncate">
+                    {result.decks.map((d) => d.attributes.user_id).filter(Boolean).filter((v, i, a) => a.indexOf(v) === i).join(', ')}
+                  </div>
                 </div>
               </div>
               <div className="flex items-center gap-4">
