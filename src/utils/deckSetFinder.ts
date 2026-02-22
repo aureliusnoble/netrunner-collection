@@ -296,15 +296,37 @@ export function deduplicateDeckSets(
 }
 
 /**
+ * Check whether a deck contains any card that is completely absent from the pool.
+ * Returns true if ALL cards in the deck exist in the pool (quantity >= 1).
+ */
+export function deckUsesOnlyPoolCards(deck: Decklist, pool: CardPool): boolean {
+  for (const cardId of Object.keys(deck.attributes.card_slots)) {
+    if (!pool.has(cardId) || pool.get(cardId)! <= 0) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/**
  * Pre-filter decks: keep only those individually buildable within tolerance.
+ * If excludeNotInPool is true, also reject decks that contain any card
+ * completely absent from the collection.
  * Returns decks sorted by missing card count ascending.
  */
 export function preFilterDecks(
   decks: Decklist[],
   pool: CardPool,
-  maxMissing: number
+  maxMissing: number,
+  excludeNotInPool = false
 ): Decklist[] {
-  const withMissing = decks.map((deck) => {
+  let candidates = decks;
+
+  if (excludeNotInPool) {
+    candidates = candidates.filter((deck) => deckUsesOnlyPoolCards(deck, pool));
+  }
+
+  const withMissing = candidates.map((deck) => {
     const { totalMissing } = computeMissingCards(deck, pool);
     return { deck, totalMissing };
   });

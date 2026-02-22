@@ -155,6 +155,7 @@ export interface SearchConfig {
   authors: string[];
   customDecklists: Decklist[];
   uniqueDecksAcrossSets: boolean;
+  excludeCardsNotInPool: boolean;
 }
 
 export interface MissingCardInfo {

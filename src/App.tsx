@@ -150,7 +150,7 @@ function App() {
             total: totalFetched,
           });
 
-          const filtered = preFilterDecks(candidates, cardPool, config.maxMissingCards);
+          const filtered = preFilterDecks(candidates, cardPool, config.maxMissingCards, config.excludeCardsNotInPool);
           const limited = filtered.slice(0, config.maxDecksPerFaction);
           filteredByFaction.set(factionId, limited);
         }
