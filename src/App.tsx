@@ -318,7 +318,7 @@ function App() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto p-4">
-        {activeTab === 'collection' && (
+        <div style={{ display: activeTab === 'collection' ? 'block' : 'none' }}>
           <CollectionManager
             collection={collection}
             cardSets={appData.cardSets}
@@ -331,8 +331,8 @@ function App() {
             onAddManualCard={addManualCard}
             onRemoveManualCard={removeManualCard}
           />
-        )}
-        {activeTab === 'search' && (
+        </div>
+        <div style={{ display: activeTab === 'search' ? 'block' : 'none' }}>
           <SearchConfig
             factions={appData.factions}
             isSearching={isSearching}
@@ -342,8 +342,8 @@ function App() {
             collectionEmpty={collectionSize === 0}
             knownAuthors={knownAuthors}
           />
-        )}
-        {activeTab === 'results' && (
+        </div>
+        <div style={{ display: activeTab === 'results' ? 'block' : 'none' }}>
           <ResultsView
             results={results}
             searchProgress={searchProgress}
@@ -352,7 +352,7 @@ function App() {
             cardTitles={cardTitles}
             totalCandidateDecks={totalCandidateDecks}
           />
-        )}
+        </div>
       </main>
     </div>
   );

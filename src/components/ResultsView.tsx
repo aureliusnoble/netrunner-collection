@@ -21,7 +21,7 @@ export function ResultsView({
 }: Props) {
   const [expandedSet, setExpandedSet] = useState<number | null>(null);
   const [expandedDeck, setExpandedDeck] = useState<string | null>(null);
-  const [expandedSummary, setExpandedSummary] = useState(false);
+  const [expandedSummary, setExpandedSummary] = useState(true);
   const [page, setPage] = useState(0);
   const PAGE_SIZE = 20;
 
@@ -166,7 +166,7 @@ export function ResultsView({
             <div className="border-t border-yellow-500/10 p-4">
               <div className="text-xs text-gray-500 mb-3 grid grid-cols-[1fr_80px_80px_80px] gap-2 font-semibold uppercase tracking-wider">
                 <span>Card</span>
-                <span className="text-right">Max Short</span>
+                <span className="text-right">Max Missing</span>
                 <span className="text-right">Sets Need</span>
                 <span className="text-right">% of Sets</span>
               </div>
@@ -198,7 +198,7 @@ export function ResultsView({
                 ))}
               </div>
               <p className="text-xs text-gray-500 mt-3 pt-2 border-t border-white/5">
-                <strong>Max Short</strong> = most copies short in any single set.{' '}
+                <strong>Max Missing</strong> = most copies short in any single set.{' '}
                 <strong>Sets Need</strong> = how many sets are missing this card.{' '}
                 Cards at 100% appear in every result set.
               </p>
