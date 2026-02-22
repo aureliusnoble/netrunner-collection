@@ -2,6 +2,7 @@ import { useState, useMemo, useCallback } from 'react';
 import type { Decklist, Faction, SearchConfig as SearchConfigType, SearchProgress } from '../types';
 import { FACTION_COLORS, FACTION_NAMES } from '../types';
 import { fetchDecklist } from '../api/netrunnerdb';
+import { getSavedPools, savePool, deletePool, type SavedPool } from '../store/savedData';
 
 interface Props {
   factions: Faction[];
@@ -34,6 +35,9 @@ export function SearchConfig({
   const [decklistInput, setDecklistInput] = useState('');
   const [isFetchingDecklist, setIsFetchingDecklist] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [savedPools, setSavedPools] = useState<SavedPool[]>(() => getSavedPools());
+  const [poolNameInput, setPoolNameInput] = useState('');
+  const [showSavePool, setShowSavePool] = useState(false);
 
   const sideFactions = useMemo(
     () =>
@@ -122,6 +126,24 @@ export function SearchConfig({
 
   const removeDecklist = useCallback((id: string) => {
     setCustomDecklists((prev) => prev.filter((d) => d.id !== id));
+  }, []);
+
+  const handleSavePool = useCallback(() => {
+    const name = poolNameInput.trim();
+    if (!name || customDecklists.length === 0) return;
+    savePool(name, customDecklists);
+    setSavedPools(getSavedPools());
+    setPoolNameInput('');
+    setShowSavePool(false);
+  }, [poolNameInput, customDecklists]);
+
+  const handleLoadPool = useCallback((pool: SavedPool) => {
+    setCustomDecklists(pool.decklists);
+  }, []);
+
+  const handleDeletePool = useCallback((id: string) => {
+    deletePool(id);
+    setSavedPools(getSavedPools());
   }, []);
 
   const handleSearch = () => {
@@ -300,6 +322,35 @@ export function SearchConfig({
           <p className="text-xs text-gray-500 mb-2">
             Restrict search to specific decklists. Paste a NetrunnerDB decklist URL or ID.
           </p>
+          {savedPools.length > 0 && (
+            <div className="mb-3 space-y-1">
+              <span className="text-xs text-gray-500 font-medium">Saved Pools:</span>
+              <div className="flex flex-wrap gap-1.5">
+                {savedPools.map((pool) => (
+                  <span
+                    key={pool.id}
+                    className="inline-flex items-center gap-1 px-2 py-1 bg-purple-500/10 border border-purple-500/20 rounded-md text-xs"
+                  >
+                    <button
+                      onClick={() => handleLoadPool(pool)}
+                      className="text-purple-300 hover:text-purple-200 transition-colors"
+                      title={`Load "${pool.name}" (${pool.decklists.length} decks)`}
+                    >
+                      {pool.name}
+                      <span className="text-purple-500 ml-1">({pool.decklists.length})</span>
+                    </button>
+                    <button
+                      onClick={() => handleDeletePool(pool.id)}
+                      className="text-purple-500/50 hover:text-red-400 ml-0.5 transition-colors"
+                      title="Delete saved pool"
+                    >
+                      ✕
+                    </button>
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
           <div className="flex gap-2">
             <input
               type="text"
@@ -356,12 +407,53 @@ export function SearchConfig({
                   </button>
                 </div>
               ))}
-              <button
-                onClick={() => setCustomDecklists([])}
-                className="text-xs text-gray-500 hover:text-gray-300 transition-colors px-1 mt-1"
-              >
-                Clear all
-              </button>
+              <div className="flex items-center gap-2 mt-2">
+                {showSavePool ? (
+                  <div className="flex items-center gap-1.5 flex-1">
+                    <input
+                      type="text"
+                      placeholder="Pool name..."
+                      value={poolNameInput}
+                      onChange={(e) => setPoolNameInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') { e.preventDefault(); handleSavePool(); }
+                        if (e.key === 'Escape') setShowSavePool(false);
+                      }}
+                      className="flex-1 px-2 py-1 bg-black/30 border border-white/10 rounded text-xs text-white placeholder-gray-500 focus:outline-none focus:border-purple-500/50"
+                      autoFocus
+                    />
+                    <button
+                      onClick={handleSavePool}
+                      disabled={!poolNameInput.trim()}
+                      className="px-2 py-1 bg-purple-600/80 hover:bg-purple-600 disabled:bg-gray-700 disabled:text-gray-500 text-white rounded text-xs font-medium transition-colors"
+                    >
+                      Save
+                    </button>
+                    <button
+                      onClick={() => setShowSavePool(false)}
+                      className="text-xs text-gray-500 hover:text-gray-300 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <button
+                      onClick={() => setShowSavePool(true)}
+                      className="text-xs text-purple-400 hover:text-purple-300 transition-colors px-1"
+                    >
+                      Save pool...
+                    </button>
+                    <span className="text-gray-600">·</span>
+                    <button
+                      onClick={() => setCustomDecklists([])}
+                      className="text-xs text-gray-500 hover:text-gray-300 transition-colors px-1"
+                    >
+                      Clear all
+                    </button>
+                  </>
+                )}
+              </div>
             </div>
           )}
         </div>

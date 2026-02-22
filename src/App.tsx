@@ -254,6 +254,17 @@ function App() {
     });
   }, []);
 
+  const loadResults = useCallback((loaded: DeckSetResult[]) => {
+    setResults(loaded);
+    setSearchProgress({
+      phase: 'done',
+      message: `Loaded ${loaded.length} saved deck set${loaded.length !== 1 ? 's' : ''}`,
+      current: loaded.length,
+      total: loaded.length,
+    });
+    setTotalCandidateDecks(0);
+  }, []);
+
   if (appData.loading) {
     return <LoadingScreen message={appData.loadingMessage} />;
   }
@@ -371,6 +382,7 @@ function App() {
             cardLookup={cardLookup}
             cardTitles={cardTitles}
             totalCandidateDecks={totalCandidateDecks}
+            onLoadResults={loadResults}
           />
         </div>
       </main>
