@@ -2,7 +2,7 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: [main]
+    branches: [main, claude/netrunnerdb-deck-analyzer-rM4lZ]
   workflow_dispatch:
 
 permissions:
