@@ -7,7 +7,7 @@ import {
   deleteSavedSearch,
   type SavedSearch,
 } from '../store/savedData';
-import { BarChart3, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, X, ExternalLink, Save } from 'lucide-react';
+import { BarChart3, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, X, ExternalLink, Save, Copy, Check } from 'lucide-react';
 
 interface Props {
   results: DeckSetResult[];
@@ -59,6 +59,8 @@ export function ResultsView({
     deleteSavedSearch(id);
     setSavedSearches(getSavedSearches());
   }, []);
+
+  const [copiedMissing, setCopiedMissing] = useState(false);
 
   const pagedResults = results.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
   const totalPages = Math.ceil(results.length / PAGE_SIZE);
@@ -296,21 +298,53 @@ export function ResultsView({
       {/* Aggregate missing cards summary */}
       {aggregateMissing.length > 0 && (
         <div className="bg-yellow-500/5 rounded-xl border border-yellow-500/20 overflow-hidden">
-          <button
-            onClick={() => setExpandedSummary(!expandedSummary)}
-            className="w-full p-4 flex items-center justify-between text-left hover:bg-white/3 transition-colors"
-          >
-            <div>
-              <h3 className="text-sm font-semibold text-yellow-400">
-                Missing Cards Summary
-              </h3>
-              <p className="text-xs text-gray-400 mt-0.5">
-                {aggregateMissing.length} unique card{aggregateMissing.length !== 1 ? 's' : ''} missing
-                across {results.length} deck set{results.length !== 1 ? 's' : ''}
-              </p>
+          <div className="p-4 flex items-center justify-between">
+            <button
+              onClick={() => setExpandedSummary(!expandedSummary)}
+              className="flex items-center gap-2 text-left hover:opacity-80 transition-opacity flex-1 min-w-0"
+            >
+              <div>
+                <h3 className="text-sm font-semibold text-yellow-400">
+                  Missing Cards Summary
+                </h3>
+                <p className="text-xs text-gray-400 mt-0.5">
+                  {aggregateMissing.length} unique card{aggregateMissing.length !== 1 ? 's' : ''} missing
+                  across {results.length} deck set{results.length !== 1 ? 's' : ''}
+                </p>
+              </div>
+            </button>
+            <div className="flex items-center gap-2 shrink-0 ml-2">
+              <button
+                onClick={() => {
+                  const lines: string[] = [];
+                  for (const mc of aggregateMissing) {
+                    for (let i = 0; i < mc.maxShortfall; i++) {
+                      lines.push(mc.cardTitle);
+                    }
+                  }
+                  navigator.clipboard.writeText(lines.join('\n')).then(() => {
+                    setCopiedMissing(true);
+                    setTimeout(() => setCopiedMissing(false), 2000);
+                  });
+                }}
+                className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors ${
+                  copiedMissing
+                    ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                    : 'bg-yellow-500/10 text-yellow-400 hover:bg-yellow-500/20 border border-yellow-500/20'
+                }`}
+                title="Copy missing card names to clipboard (one per line, repeated by quantity)"
+              >
+                {copiedMissing ? <Check size={12} /> : <Copy size={12} />}
+                {copiedMissing ? 'Copied!' : 'Copy list'}
+              </button>
+              <button
+                onClick={() => setExpandedSummary(!expandedSummary)}
+                className="text-gray-500 hover:text-gray-300 transition-colors p-1"
+              >
+                {expandedSummary ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+              </button>
             </div>
-            <span className="text-gray-500">{expandedSummary ? <ChevronUp size={16} /> : <ChevronDown size={16} />}</span>
-          </button>
+          </div>
 
           {expandedSummary && (
             <div className="border-t border-yellow-500/10 p-4">
