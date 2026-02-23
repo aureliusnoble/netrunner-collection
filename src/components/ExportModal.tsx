@@ -131,7 +131,7 @@ export function ExportModal({ cards, side, cardToPrintingId, onClose }: Props) {
                   <span className="text-cyan-400 font-medium">{totalCopies}</span> total {totalCopies !== 1 ? 'copies' : 'copy'} to download
                 </div>
                 <div className="text-xs text-gray-500">
-                  Side: <span className="capitalize text-gray-400">{side}</span> — high-resolution images from NetrunnerDB
+                  Side: <span className="capitalize text-gray-400">{side}</span> — high-resolution 300 DPI PNGs with MPC bleed
                 </div>
               </div>
 

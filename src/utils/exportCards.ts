@@ -37,12 +37,51 @@ function padNumber(n: number): string {
   return String(n).padStart(4, '0');
 }
 
-/** Convert an image blob (WebP or JPG) to PNG using OffscreenCanvas. */
-async function convertToPng(blob: Blob): Promise<Blob> {
+// MPC bleed: 1/8" per side at 300 DPI = 36px per side
+// 750x1050 card + 36px bleed on each side = 822x1122 final
+const BLEED_PX = 36;
+
+/**
+ * Add MPC-compatible bleed by replicating edge pixels outward (like ProxyNexus),
+ * then convert to PNG. For images that aren't 750x1050 (fallback low-res), the
+ * bleed is scaled proportionally.
+ */
+async function addBleedAndConvertToPng(blob: Blob): Promise<Blob> {
   const bitmap = await createImageBitmap(blob);
-  const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+  const srcW = bitmap.width;
+  const srcH = bitmap.height;
+
+  // Scale bleed proportionally if the image isn't 750px wide (e.g. 300px fallback)
+  const bleed = Math.round(BLEED_PX * (srcW / 750));
+  const dstW = srcW + bleed * 2;
+  const dstH = srcH + bleed * 2;
+
+  const canvas = new OffscreenCanvas(dstW, dstH);
   const ctx = canvas.getContext('2d')!;
-  ctx.drawImage(bitmap, 0, 0);
+
+  // Draw the original image centered
+  ctx.drawImage(bitmap, bleed, bleed);
+
+  // Replicate edges outward (BORDER_REPLICATE style):
+  // Top edge — stretch the top 1px row into the top bleed area
+  ctx.drawImage(bitmap, 0, 0, srcW, 1, bleed, 0, srcW, bleed);
+  // Bottom edge — stretch the bottom 1px row into the bottom bleed area
+  ctx.drawImage(bitmap, 0, srcH - 1, srcW, 1, bleed, bleed + srcH, srcW, bleed);
+  // Left edge — stretch the left 1px column into the left bleed area
+  ctx.drawImage(bitmap, 0, 0, 1, srcH, 0, bleed, bleed, srcH);
+  // Right edge — stretch the right 1px column into the right bleed area
+  ctx.drawImage(bitmap, srcW - 1, 0, 1, srcH, bleed + srcW, bleed, bleed, srcH);
+
+  // Corners — fill with the corner pixel color
+  // Top-left
+  ctx.drawImage(bitmap, 0, 0, 1, 1, 0, 0, bleed, bleed);
+  // Top-right
+  ctx.drawImage(bitmap, srcW - 1, 0, 1, 1, bleed + srcW, 0, bleed, bleed);
+  // Bottom-left
+  ctx.drawImage(bitmap, 0, srcH - 1, 1, 1, 0, bleed + srcH, bleed, bleed);
+  // Bottom-right
+  ctx.drawImage(bitmap, srcW - 1, srcH - 1, 1, 1, bleed + srcW, bleed + srcH, bleed, bleed);
+
   bitmap.close();
   return canvas.convertToBlob({ type: 'image/png' });
 }
@@ -108,7 +147,7 @@ async function fetchCardImages(
         } catch {
           blob = await fetchImageBlob(fallbackUrl, abortSignal);
         }
-        const pngBlob = await convertToPng(blob);
+        const pngBlob = await addBleedAndConvertToPng(blob);
         images.set(cardId, pngBlob);
       } catch {
         if (abortSignal?.aborted) return;
