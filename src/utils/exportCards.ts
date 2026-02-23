@@ -1,5 +1,5 @@
 import JSZip from 'jszip';
-import { getCardImageUrl } from './cardPrintings';
+import { getCardImageUrl, getCardImageUrlHiRes } from './cardPrintings';
 
 export interface ExportCard {
   cardId: string;
@@ -35,6 +35,16 @@ function sanitizeFilename(name: string): string {
 /** Zero-pad a number to 4 digits. */
 function padNumber(n: number): string {
   return String(n).padStart(4, '0');
+}
+
+/** Convert an image blob (WebP or JPG) to PNG using OffscreenCanvas. */
+async function convertToPng(blob: Blob): Promise<Blob> {
+  const bitmap = await createImageBitmap(blob);
+  const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+  const ctx = canvas.getContext('2d')!;
+  ctx.drawImage(bitmap, 0, 0);
+  bitmap.close();
+  return canvas.convertToBlob({ type: 'image/png' });
 }
 
 /** Fetch an image as a Blob with retry support. */
@@ -90,9 +100,16 @@ async function fetchCardImages(
       }
 
       try {
-        const url = getCardImageUrl(printingId);
-        const blob = await fetchImageBlob(url, abortSignal);
-        images.set(cardId, blob);
+        const hiResUrl = getCardImageUrlHiRes(printingId);
+        const fallbackUrl = getCardImageUrl(printingId);
+        let blob: Blob;
+        try {
+          blob = await fetchImageBlob(hiResUrl, abortSignal);
+        } catch {
+          blob = await fetchImageBlob(fallbackUrl, abortSignal);
+        }
+        const pngBlob = await convertToPng(blob);
+        images.set(cardId, pngBlob);
       } catch {
         if (abortSignal?.aborted) return;
         failed.push(cardId);
@@ -146,7 +163,7 @@ export async function exportCardsAsZip(options: ExportOptions): Promise<ExportRe
 
     const safeName = sanitizeFilename(card.cardTitle);
     for (let copy = 0; copy < card.shortfall; copy++) {
-      const filename = `${padNumber(fileNumber)}_${card.cardId}_${safeName}.jpg`;
+      const filename = `${padNumber(fileNumber)}_${card.cardId}_${safeName}.png`;
       folder.file(filename, imageBlob);
       fileNumber++;
     }

@@ -1,6 +1,7 @@
 import type { Printing } from '../types';
 
 const IMAGE_BASE_URL = 'https://card-images.netrunnerdb.com/v2/large';
+const XLARGE_BASE_URL = 'https://card-images.netrunnerdb.com/v2/xlarge';
 
 /**
  * Build a map from card_id → printing_id, choosing the latest printing
@@ -34,4 +35,9 @@ export function buildCardToPrintingMap(printings: Printing[]): Map<string, strin
 /** Get the large card image URL for a given printing ID. */
 export function getCardImageUrl(printingId: string): string {
   return `${IMAGE_BASE_URL}/${printingId}.jpg`;
+}
+
+/** Get the high-resolution (xlarge) card image URL for a given printing ID. */
+export function getCardImageUrlHiRes(printingId: string): string {
+  return `${XLARGE_BASE_URL}/${printingId}.webp`;
 }

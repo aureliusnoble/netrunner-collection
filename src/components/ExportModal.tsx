@@ -131,7 +131,7 @@ export function ExportModal({ cards, side, cardToPrintingId, onClose }: Props) {
                   <span className="text-cyan-400 font-medium">{totalCopies}</span> total {totalCopies !== 1 ? 'copies' : 'copy'} to download
                 </div>
                 <div className="text-xs text-gray-500">
-                  Side: <span className="capitalize text-gray-400">{side}</span> — images from NetrunnerDB
+                  Side: <span className="capitalize text-gray-400">{side}</span> — high-resolution images from NetrunnerDB
                 </div>
               </div>
 
@@ -186,7 +186,7 @@ export function ExportModal({ cards, side, cardToPrintingId, onClose }: Props) {
                   <div>netrunner_{side}_proxies.zip</div>
                   {cardBackBlob && <div className="ml-3">card_back.jpg</div>}
                   <div className="ml-3">{side}/</div>
-                  <div className="ml-6">0001_{'{card_id}'}_{'{card_name}'}.jpg</div>
+                  <div className="ml-6">0001_{'{card_id}'}_{'{card_name}'}.png</div>
                   {totalCopies > 1 && (
                     <div className="ml-6 text-gray-600">... ({totalCopies} files)</div>
                   )}
