@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback } from 'react';
-import type { Card, DeckSetResult, SearchProgress } from '../types';
+import type { Card, DeckSetResult, Printing, SearchProgress } from '../types';
 import { FACTION_COLORS, FACTION_NAMES } from '../types';
 import {
   getSavedSearches,
@@ -7,7 +7,10 @@ import {
   deleteSavedSearch,
   type SavedSearch,
 } from '../store/savedData';
-import { BarChart3, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, X, ExternalLink, Save } from 'lucide-react';
+import { buildCardToPrintingMap } from '../utils/cardPrintings';
+import type { ExportCard } from '../utils/exportCards';
+import { ExportModal } from './ExportModal';
+import { BarChart3, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, X, ExternalLink, Save, Download } from 'lucide-react';
 
 interface Props {
   results: DeckSetResult[];
@@ -15,6 +18,7 @@ interface Props {
   isSearching: boolean;
   cardLookup: Map<string, Card>;
   cardTitles: Map<string, string>;
+  printings: Printing[];
   totalCandidateDecks: number;
   onLoadResults: (results: DeckSetResult[]) => void;
 }
@@ -25,6 +29,7 @@ export function ResultsView({
   isSearching,
   cardLookup,
   cardTitles,
+  printings,
   totalCandidateDecks,
   onLoadResults,
 }: Props) {
@@ -38,6 +43,12 @@ export function ResultsView({
   const [showSaveForm, setShowSaveForm] = useState(false);
   const [saveNameInput, setSaveNameInput] = useState('');
   const [expandedSaved, setExpandedSaved] = useState(false);
+
+  // Export modal state
+  const [exportModalCards, setExportModalCards] = useState<ExportCard[] | null>(null);
+  const [exportModalSide, setExportModalSide] = useState<'runner' | 'corp'>('runner');
+
+  const cardToPrintingId = useMemo(() => buildCardToPrintingMap(printings), [printings]);
 
   const handleSaveSearch = useCallback(() => {
     const name = saveNameInput.trim();
@@ -58,6 +69,15 @@ export function ResultsView({
   const handleDeleteSearch = useCallback((id: string) => {
     deleteSavedSearch(id);
     setSavedSearches(getSavedSearches());
+  }, []);
+
+  const openExportModal = useCallback((cards: ExportCard[], side: 'runner' | 'corp') => {
+    setExportModalCards(cards);
+    setExportModalSide(side);
+  }, []);
+
+  const closeExportModal = useCallback(() => {
+    setExportModalCards(null);
   }, []);
 
   const pagedResults = results.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
@@ -352,6 +372,22 @@ export function ResultsView({
                 <strong>Sets Need</strong> = how many sets are missing this card.{' '}
                 Cards at 100% appear in every result set.
               </p>
+
+              {/* Export aggregate missing cards */}
+              <button
+                onClick={() => {
+                  const side = results[0]?.decks[0]?.attributes.side_id as 'runner' | 'corp' || 'runner';
+                  const cards: ExportCard[] = aggregateMissing.map((mc) => ({
+                    cardId: mc.cardId,
+                    cardTitle: mc.cardTitle,
+                    shortfall: mc.maxShortfall,
+                  }));
+                  openExportModal(cards, side);
+                }}
+                className="mt-3 flex items-center gap-1.5 text-xs text-cyan-400 hover:text-cyan-300 transition-colors"
+              >
+                <Download size={12} /> Export for printing (max missing per card)...
+              </button>
             </div>
           )}
         </div>
@@ -544,6 +580,22 @@ export function ResultsView({
                         </div>
                       ))}
                     </div>
+
+                    {/* Export this result set's missing cards */}
+                    <button
+                      onClick={() => {
+                        const side = result.decks[0]?.attributes.side_id as 'runner' | 'corp' || 'runner';
+                        const cards: ExportCard[] = result.missingCards.map((mc) => ({
+                          cardId: mc.cardId,
+                          cardTitle: mc.cardTitle,
+                          shortfall: mc.shortfall,
+                        }));
+                        openExportModal(cards, side);
+                      }}
+                      className="mt-3 pt-3 border-t border-yellow-500/10 flex items-center gap-1.5 text-xs text-cyan-400 hover:text-cyan-300 transition-colors"
+                    >
+                      <Download size={12} /> Export for printing...
+                    </button>
                   </div>
                 )}
               </div>
@@ -575,6 +627,16 @@ export function ResultsView({
             <ChevronRight size={16} />
           </button>
         </div>
+      )}
+
+      {/* Export Modal */}
+      {exportModalCards && (
+        <ExportModal
+          cards={exportModalCards}
+          side={exportModalSide}
+          cardToPrintingId={cardToPrintingId}
+          onClose={closeExportModal}
+        />
       )}
     </div>
   );
