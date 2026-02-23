@@ -408,6 +408,7 @@ function App() {
             isSearching={isSearching}
             cardLookup={cardLookup}
             cardTitles={cardTitles}
+            printings={appData.printings}
             totalCandidateDecks={totalCandidateDecks}
             onLoadResults={loadResults}
           />

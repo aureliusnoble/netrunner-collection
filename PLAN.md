@@ -1,138 +1,139 @@
-# Netrunner Deck Set Analyzer - Implementation Plan
+# Export Cards for Printing - Implementation Plan
 
-## Architecture Overview
-- **Framework**: Vite + React + TypeScript + Tailwind CSS
-- **API**: NetrunnerDB v3 (api.netrunnerdb.com)
-- **Deployment**: GitHub Pages (static SPA)
-- **Algorithm**: Filtered brute force with pruning for deck set combinations
+## Overview
+Add a feature that exports missing cards as JPG images in a downloadable zip file, for proxy printing purposes. The export includes one JPG per copy needed (based on shortfall), organized in a Runner or Corp subfolder, plus an optional user-provided card back image.
 
-## Data Model
+## Key Design Decisions
+- **Card backs**: User uploads their own image (NSG does not distribute card backs publicly)
+- **Export scope**: Export buttons on both individual result sets AND the aggregate missing cards summary
+- **Image source**: Use the most recently released printing of each card for the image URL
+- **Image URL format**: `https://card-images.netrunnerdb.com/v2/large/{printing_id}.jpg`
+- **Zip library**: Use `jszip` (popular, well-maintained, works in-browser)
+- **File saving**: Use native `URL.createObjectURL` + click-to-download pattern (no extra dependency)
 
-### Collection
-- User selects NSG products they own + quantity (e.g., "System Gateway x1", "Elevation x2")
-- Each product's cards/quantities come from the API's `printings` endpoint (`quantity` field per printing, `card_set_id` for product)
-- User can manually add/remove individual cards
-- Total collection = sum of (product cards * product copies) + manual additions
-
-### Deck Search
-- Side filter (Runner/Corp)
-- Number of decks wanted (1-7)
-- Faction constraints per deck slot (e.g., "one from each corp faction" or specific factions)
-- Missing cards tolerance (0-N)
-- Popularity filter (minimum favorites/comments threshold, or "all")
-
-### Card Sets (from API)
-Fetch from `/api/v3/public/card_sets` or `/api/v3/public/printings` to get:
-- card_set_id → maps to purchasable products
-- Each printing has `quantity` (copies in that set) and `card_id`
-- deck_limit per card
-
-## Pages/Views
-
-### 1. Collection Setup (left panel / step 1)
-- Dropdown/checklist of NSG products with quantity spinners
-- Products grouped by cycle
-- Manual card addition: search-as-you-type card selector with quantity
-- Collection summary: total unique cards, total cards
-- Persist to localStorage
-
-### 2. Search Configuration (center / step 2)
-- Runner vs Corp toggle
-- Number of decks (1-7)
-- Faction slots: for each deck slot, select faction (or "any")
-- Missing cards allowed (0-10 slider)
-- Minimum popularity filter (favorites count)
-- "Search" button
-
-### 3. Results View (step 3)
-- List of valid deck set combinations
-- Each combination shows:
-  - The N decks with names, authors, links to NetrunnerDB
-  - Cards in each deck
-  - Shared cards between decks highlighted
-  - Missing cards (if tolerance > 0) with:
-    - Which cards are missing
-    - How many copies needed vs available
-    - Which decks in the set need them
-- Sort results by: fewest missing cards, highest combined popularity, etc.
-
-## API Integration
-
-### Endpoints to use:
-1. `GET /api/v3/public/card_sets` - Get all products/packs
-2. `GET /api/v3/public/printings` - Get all cards with pack quantities (paginated)
-3. `GET /api/v3/public/cards` - Card details (name, faction, side, deck_limit)
-4. `GET /api/v3/public/decklists?filter[side_id]=corp&filter[faction_id]=haas_bioroid` - Fetch decklists
-5. `GET /api/v3/public/factions` - Faction list
-6. `GET /api/v3/public/sides` - Sides (runner/corp)
-
-### Data Fetching Strategy:
-- Fetch all printings + cards on app load (cache in localStorage with TTL)
-- Fetch decklists on-demand per search, paginated
-- Show loading progress
-
-## Algorithm: Deck Set Finder
-
-### Step 1: Pre-filter decklists
-- Fetch all decklists matching side + faction criteria
-- For each decklist, compute how many cards are NOT in collection
-- Filter to decks with missing_count <= tolerance
-- Sort by popularity (favorites), keep top N per faction (configurable, default 50)
-
-### Step 2: Brute force combination search with pruning
+## Zip File Structure
 ```
-For each combination of decks (one per faction slot):
-  1. Sum up all card requirements across all decks in the set
-  2. For each card, check if total_needed <= collection_available
-  3. If any card exceeds collection, this combo is invalid
-  4. Track missing cards if tolerance > 0
-  5. If valid (missing <= tolerance), add to results
-
-Pruning optimizations:
-  - Sort faction slots by fewest candidates first
-  - Early termination: if partial combo already exceeds tolerance, skip
-  - Use a running card tally (add/subtract) instead of recomputing
+export.zip
+├── card_back.jpg              (user-provided card back, if uploaded)
+└── runner/                    (or corp/, based on search side)
+    ├── 0001_{card_id}_{card_name}.jpg
+    ├── 0002_{card_id}_{card_name}.jpg
+    ├── 0003_{card_id}_{card_name}.jpg   (e.g., if 3 copies missing)
+    └── ...
 ```
-
-### Step 3: Result ranking
-- Sort valid sets by: missing card count (asc), then combined popularity (desc)
-- Limit to top 100 results
 
 ## Implementation Steps
 
-### Phase 1: Project Setup
-1. Initialize Vite + React + TS project
-2. Configure Tailwind CSS
-3. Set up GitHub Pages deployment
-4. Create basic app shell with routing/layout
+### Step 1: Install Dependencies
+- `npm install jszip` — for creating zip files in-browser
+- `npm install -D @types/jszip` — TypeScript types (if needed; jszip ships its own types)
 
-### Phase 2: Data Layer
-5. API client for NetrunnerDB v3
-6. Fetch and cache card sets, printings, cards, factions
-7. Collection state management (React context + localStorage)
-8. Product → card mapping from printings data
+### Step 2: Create Card-to-Printing Mapping Utility (`src/utils/cardPrintings.ts`)
+Create a utility to resolve `card_id` → latest `printing_id`:
+- Takes the full printings array (already loaded and cached by the app)
+- Groups printings by `card_id`
+- For each card, selects the printing with the latest `date_release` (or highest `position` as tiebreaker)
+- Returns a `Map<string, string>` of `card_id` → `printing_id`
+- Also export a helper: `getCardImageUrl(printingId: string): string` that returns the image URL
 
-### Phase 3: Collection UI
-9. Product selector component
-10. Manual card addition component
-11. Collection summary/display
+### Step 3: Create Export Utility (`src/utils/exportCards.ts`)
+Core export logic:
 
-### Phase 4: Search & Algorithm
-12. Search configuration UI
-13. Decklist fetching with pagination
-14. Deck pre-filtering (buildable from collection check)
-15. Brute force combination finder with pruning
-16. Web Worker for computation (keep UI responsive)
+```typescript
+interface ExportCard {
+  cardId: string;
+  cardTitle: string;
+  shortfall: number;  // number of copies to generate
+}
 
-### Phase 5: Results UI
-17. Deck set result cards
-18. Card overlap visualization
-19. Missing cards detail view
-20. Sorting and pagination of results
+interface ExportOptions {
+  cards: ExportCard[];
+  side: 'runner' | 'corp';
+  cardBackBlob: Blob | null;
+  cardToPrintingId: Map<string, string>;
+  onProgress: (message: string, current: number, total: number) => void;
+}
 
-### Phase 6: Polish
-21. Loading states and progress indicators
-22. Error handling
-23. Responsive design
-24. localStorage persistence
-25. GitHub Pages deploy config
+async function exportCardsAsZip(options: ExportOptions): Promise<Blob>
+```
+
+Logic:
+1. Calculate total images needed (sum of all shortfalls)
+2. Create a JSZip instance
+3. If `cardBackBlob` is provided, add it as `card_back.jpg` at root
+4. Create the side subfolder (`runner/` or `corp/`)
+5. For each card, for each copy (1..shortfall):
+   - Resolve `card_id` → `printing_id` via the mapping
+   - Fetch image from `https://card-images.netrunnerdb.com/v2/large/{printingId}.jpg`
+   - Sanitize card name for filename (remove special chars, replace spaces with underscores)
+   - Name: `{0001-padded number}_{card_id}_{sanitized_name}.jpg`
+   - Add to zip under the side folder
+   - Report progress
+6. Generate the zip blob and return it
+7. Handle fetch errors gracefully (skip cards with missing images, log warnings)
+
+Rate limiting / batching:
+- Download images in batches of 5 concurrent requests to avoid overwhelming the server
+- Show progress updates as images are downloaded
+- Cache fetched image blobs so duplicate card copies don't re-fetch
+
+### Step 4: Create Export Modal Component (`src/components/ExportModal.tsx`)
+A modal dialog that handles the entire export flow:
+- **Pre-export state**: Shows summary (N unique cards, M total copies to download), card back upload area (optional with preview), "Download Zip" button
+- **Exporting state**: Progress bar with "Downloading card images... (X/Y)", cancel button
+- **Complete state**: Auto-triggers zip download, shows success message, any failed images listed
+- Card back upload: file input accepting `.jpg/.jpeg/.png/.webp`, thumbnail preview, remove button
+- Styled to match existing dark theme (dark modal overlay, cyan/purple accents)
+
+### Step 5: Add Export Buttons to ResultsView (`src/components/ResultsView.tsx`)
+Two export entry points:
+
+**A) Aggregate Missing Cards Summary section:**
+- Add "Export for Printing" button below the summary table
+- Uses `aggregateMissing` data with `maxShortfall` per card
+- Opens the ExportModal
+
+**B) Per-Result Missing Cards section:**
+- Add "Export for Printing" button in each result set's missing cards area
+- Uses that result's `missingCards` array (each `MissingCardInfo` has `shortfall`)
+- Opens the ExportModal
+
+Both buttons determine `side` from the deck data (all decks in a result share the same `side_id`).
+
+### Step 6: Wire Up Data Flow in App.tsx
+- Pass `printings` array from `App.tsx` to `ResultsView` (currently not passed)
+- Compute `cardToPrintingId` mapping via `useMemo` in `ResultsView` or pass pre-computed from App
+- The ExportModal receives: cards to export, side, and the printing mapping
+
+### Step 7: Add ExportModal state management in ResultsView
+- State: `exportModalOpen: boolean`, `exportCards: ExportCard[]`, `exportSide: string`
+- Opening either export button populates these and opens the modal
+- Modal handles its own card back state and progress internally
+
+## File Changes Summary
+
+| File | Change Type | Description |
+|------|-------------|-------------|
+| `package.json` | MODIFY | Add `jszip` dependency |
+| `src/utils/cardPrintings.ts` | NEW | Card ID → Printing ID mapping utility |
+| `src/utils/exportCards.ts` | NEW | Core zip generation and image download logic |
+| `src/components/ExportModal.tsx` | NEW | Modal with card back upload, progress bar, download trigger |
+| `src/components/ResultsView.tsx` | MODIFY | Add export buttons to aggregate summary and per-result sections |
+| `src/App.tsx` | MODIFY | Pass `printings` to `ResultsView` |
+
+## Edge Cases & Error Handling
+- **Card with no printings**: Skip and show in error summary
+- **Image download failure** (404, network error): Skip the image, continue, show summary of failures at the end
+- **Large exports** (50+ images): Clear progress indicator, batched downloads
+- **Card name sanitization**: Remove `/\:*?"<>|` and other filesystem-unfriendly chars, replace spaces with `_`, truncate overly long names
+- **No missing cards**: Export buttons hidden/disabled when there are no missing cards
+- **Empty card back**: Card back is optional; zip is valid without it
+- **User cancels during export**: Abort pending fetches, clean up
+
+## Technical Notes
+- All image fetching happens client-side (no server needed)
+- Images fetched as `Blob` via `fetch()` and added directly to JSZip
+- The `large` image size from NRDB is suitable for printing (~300-400px wide, good for proxy printing)
+- Typical card image: ~50-200KB at "large" size
+- Browser memory can handle typical exports (up to a few hundred images)
+- Each unique card image is fetched once and reused for duplicate copies in the zip
